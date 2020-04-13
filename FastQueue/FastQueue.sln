@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30002.166
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestConsole", "TestConsole\TestConsole.csproj", "{B191E5BD-CE15-40D1-A267-6ABA326926BD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastQueue.Server.Core", "FastQueue.Server.Core\FastQueue.Server.Core.csproj", "{F2CF3375-EF48-4985-BC4E-0955922A0E36}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B191E5BD-CE15-40D1-A267-6ABA326926BD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B191E5BD-CE15-40D1-A267-6ABA326926BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B191E5BD-CE15-40D1-A267-6ABA326926BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B191E5BD-CE15-40D1-A267-6ABA326926BD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F2CF3375-EF48-4985-BC4E-0955922A0E36}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F2CF3375-EF48-4985-BC4E-0955922A0E36}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F2CF3375-EF48-4985-BC4E-0955922A0E36}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F2CF3375-EF48-4985-BC4E-0955922A0E36}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8F55C84B-88B8-461B-8399-37C5D63C402E}
+	EndGlobalSection
+EndGlobal
