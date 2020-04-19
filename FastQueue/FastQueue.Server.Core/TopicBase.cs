@@ -3,13 +3,14 @@ using FastQueue.Server.Core.Model;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
     public abstract class TopicBase : ITopic
     {
-        private HashSet<IAckSender> ackSenders = new HashSet<IAckSender>();
+        private long lastMessageId = 0;
 
         public string Name { get; }
 
@@ -18,13 +19,16 @@ namespace FastQueue.Server.Core
             Name = name;
         }
 
-        public abstract void Write(PublisherMessage message);
-
-        public abstract void Write(PublisherMessage[] messages);
-
-        public void SetAckSender(IAckSender ackSender)
+        public long Write(PublisherMessage message)
         {
-            ackSenders.Add(ackSender);
+            var newMessageId = Interlocked.Increment(ref lastMessageId);
+            return newMessageId;
+        }
+
+        public long Write(PublisherMessage[] messages)
+        {
+            var newMessageId = Interlocked.Add(ref lastMessageId, messages.Length);
+            return newMessageId;
         }
 
         private Task SendAcks()

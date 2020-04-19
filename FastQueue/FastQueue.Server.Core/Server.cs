@@ -28,7 +28,7 @@ namespace FastQueue.Server.Core
             return Task.CompletedTask;
         }
 
-        public ITopicWriter GetTopicWriter(string topicName)
+        public ITopic GetTopicWriter(string topicName)
         {
             if (topics.TryGetValue(topicName, out ITopic topic))
             {

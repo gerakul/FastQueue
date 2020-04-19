@@ -10,15 +10,5 @@ namespace FastQueue.Server.Core
         internal InMemoryTopic(string name) : base(name)
         {
         }
-
-        public override void Write(PublisherMessage message)
-        {
-            throw new NotImplementedException();
-        }
-
-        public override void Write(PublisherMessage[] messages)
-        {
-            throw new NotImplementedException();
-        }
     }
 }
