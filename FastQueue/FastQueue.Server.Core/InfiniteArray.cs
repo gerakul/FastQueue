@@ -84,7 +84,8 @@ namespace FastQueue.Server.Core
                 else
                 {
                     StartNewBlock();
-                    data[^1][firstFreeIndexInBlock = 0] = item;
+                    data[^1][0] = item;
+                    firstFreeIndexInBlock = 1;
                     CheckForCleanUp();
                 }
             }
@@ -108,8 +109,9 @@ namespace FastQueue.Server.Core
                     return;
                 }
 
-                if (blockInd >= data.Count
-                    || (blockInd == (data.Count - 1) && indInBlock > firstFreeIndexInBlock))
+                if (blockInd > data.Count
+                    || (blockInd == (data.Count - 1) && indInBlock > firstFreeIndexInBlock)
+                    || (blockInd == data.Count && indInBlock > 0))
                 {
                     throw new IndexOutOfRangeException($"Item with index {index} doesn't exist in the array");
                 }

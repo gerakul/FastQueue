@@ -11,28 +11,22 @@ namespace TestConsole
     {
         static async Task Main(string[] args)
         {
-            var arr = new InfiniteArray<int>(1000, new InfiniteArrayOptions
+            var arr = new InfiniteArray<long>(0, new InfiniteArrayOptions
             {
-                BlockLength = 10,
-                DataListCapacity = 5,
+                BlockLength = 100000,
+                DataListCapacity = 128,
                 MinimumFreeBlocks = 2
             });
 
-            var items = Enumerable.Range(0, 10000).ToArray();
+            for (long i = 0; i < 1000000; i++)
+            {
+                arr.Add(i);
 
-            arr.Add(items.AsSpan(0, 100));
-            arr.FreeTo(1025);
-            arr.Add(items.AsSpan(100, 100));
-            arr.FreeTo(1190);
-            arr.Add(items.AsSpan(200, 97));
-            arr.FreeTo(1190);
-            arr.Add(items.AsSpan(200, 97));
-            arr.FreeTo(1190);
-            arr.Add(items.AsSpan(200, 97));
-            arr.FreeTo(1190);
-            arr.Add(items.AsSpan(200, 97));
-            arr.FreeTo(1490);
-            arr.Add(items.AsSpan(200, 97));
+                if (i % 100 == 0)
+                {
+                    arr.FreeTo(i);
+                }
+            }
 
             Console.WriteLine("end");
             await Task.CompletedTask;
