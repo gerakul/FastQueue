@@ -6,10 +6,9 @@ namespace FastQueue.Server.Core
 {
     internal class InfiniteArray<T>
     {
-        private const int ListCapacity = 128;
-        private const int MinimumFreeBlocks = 2;
-
         private readonly int blockLength;
+        private readonly int dataListCapacity;
+        private readonly int minimumFreeBlocks;
         private long offset;
         private object sync = new object();
         private List<T[]> data;
@@ -18,12 +17,14 @@ namespace FastQueue.Server.Core
         private int firstItemIndexInBlock;
         private int firstFreeIndexInBlock;
 
-        public InfiniteArray(int blockLength, long initialOffset)
+        public InfiniteArray(long initialOffset, InfiniteArrayOptions infiniteArrayOptions)
         {
-            this.blockLength = blockLength;
+            blockLength = infiniteArrayOptions.BlockLength;
+            dataListCapacity = infiniteArrayOptions.DataListCapacity;
+            minimumFreeBlocks = infiniteArrayOptions.MinimumFreeBlocks;
             offset = initialOffset;
-            data = new List<T[]>(ListCapacity);
-            data[0] = new T[blockLength];
+            data = new List<T[]>(dataListCapacity);
+            data.Add(new T[blockLength]);
             firstFreeBlockIndex = 0;
             firstBusyBlockIndex = 0;
             firstItemIndexInBlock = 0;
@@ -113,8 +114,14 @@ namespace FastQueue.Server.Core
                     throw new IndexOutOfRangeException($"Item with index {index} doesn't exist in the array");
                 }
 
+                var prevFirstBusyBlockIndex = firstBusyBlockIndex;
                 firstBusyBlockIndex = blockInd;
                 firstItemIndexInBlock = indInBlock;
+
+                if (prevFirstBusyBlockIndex != firstBusyBlockIndex)
+                {
+                    CheckForCleanUp();
+                }
             }
         }
 
@@ -141,23 +148,23 @@ namespace FastQueue.Server.Core
             var busyBlocks = data.Count - firstBusyBlockIndex;
             var freeBlocks = firstBusyBlockIndex - firstFreeBlockIndex;
 
-            if (freeBlocks > (busyBlocks / 2) && freeBlocks > MinimumFreeBlocks)
+            if (freeBlocks > (busyBlocks / 2) && freeBlocks > minimumFreeBlocks)
             {
-                for (int i = firstFreeBlockIndex; i < firstBusyBlockIndex - MinimumFreeBlocks; i++)
+                for (int i = firstFreeBlockIndex; i < firstBusyBlockIndex - minimumFreeBlocks; i++)
                 {
                     data[i] = null;
                 }
 
-                firstFreeBlockIndex = firstBusyBlockIndex - MinimumFreeBlocks;
+                firstFreeBlockIndex = firstBusyBlockIndex - minimumFreeBlocks;
             }
 
             var newBlocksTotal = data.Count - firstFreeBlockIndex;
-            if (data.Count >= ListCapacity && newBlocksTotal < (data.Count / 2))
+            if (data.Count >= dataListCapacity && newBlocksTotal < (data.Count / 2))
             {
-                var newData = new List<T[]>(Math.Max(ListCapacity, newBlocksTotal));
+                var newData = new List<T[]>(Math.Max(dataListCapacity, newBlocksTotal));
                 for (int i = firstFreeBlockIndex; i < data.Count; i++)
                 {
-                    newData[i - firstFreeBlockIndex] = data[i];
+                    newData.Add(data[i]);
                 }
 
                 data = newData;
@@ -178,5 +185,12 @@ namespace FastQueue.Server.Core
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int GetIndexInBlock(long index) => checked((int)((index - offset) % blockLength));
+    }
+
+    internal class InfiniteArrayOptions
+    {
+        public int BlockLength { get; set; } = 100000;
+        public int DataListCapacity { get; set; } = 128;
+        public int MinimumFreeBlocks { get; set; } = 2;
     }
 }
