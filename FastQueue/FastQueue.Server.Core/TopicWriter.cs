@@ -6,18 +6,18 @@ using System.Text;
 
 namespace FastQueue.Server.Core
 {
-    internal class TopicWriter
+    public class TopicWriter
     {
-        private TopicBase topic;
+        private Topic topic;
 
-        public TopicWriter(TopicBase topic)
+        internal TopicWriter(Topic topic)
         {
             this.topic = topic;
         }
 
-        public void Write(PublisherMessage[] messages)
+        public void Write(Span<PublisherMessage> messages)
         {
-            var lastId = topic.Write(messages);
+            topic.Write(messages);
 
         }
 

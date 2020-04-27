@@ -22,7 +22,7 @@ namespace FastQueue.Server.Core
 
         public Task CreateTopic(string topicName, TopicOptions options = null)
         {
-            topics.AddOrUpdate(topicName, name => topicFactory.CreateTopic(name, options ?? TopicOptions.Default), 
+            topics.AddOrUpdate(topicName, name => topicFactory.CreateTopic(name, options ?? new TopicOptions()), 
                 (name, y) => throw new TopicManagementException($"Topic {name} already exists"));
 
             return Task.CompletedTask;

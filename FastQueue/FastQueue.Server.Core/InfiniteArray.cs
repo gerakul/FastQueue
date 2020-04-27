@@ -4,18 +4,21 @@ using System.Runtime.CompilerServices;
 
 namespace FastQueue.Server.Core
 {
+    // not thread-safe
     internal class InfiniteArray<T>
     {
         private readonly int blockLength;
         private readonly int dataListCapacity;
         private readonly int minimumFreeBlocks;
         private long offset;
-        private object sync = new object();
         private List<T[]> data;
         private int firstFreeBlockIndex;
         private int firstBusyBlockIndex;
         private int firstItemIndexInBlock;
         private int firstFreeIndexInBlock;
+
+        internal long NumberOfBlockAllocations { get; private set; }
+        internal long NumberDataListAllocations { get; private set; }
 
         public InfiniteArray(long initialOffset, InfiniteArrayOptions infiniteArrayOptions)
         {
@@ -24,71 +27,81 @@ namespace FastQueue.Server.Core
             minimumFreeBlocks = infiniteArrayOptions.MinimumFreeBlocks;
             offset = initialOffset;
             data = new List<T[]>(dataListCapacity);
+            NumberDataListAllocations = 1;
             data.Add(new T[blockLength]);
+            NumberOfBlockAllocations = 1;
             firstFreeBlockIndex = 0;
             firstBusyBlockIndex = 0;
             firstItemIndexInBlock = 0;
             firstFreeIndexInBlock = 0;
         }
 
-        public void Add(Span<T> items)
+        /// <summary>
+        /// Add range of items to the array
+        /// </summary>
+        /// <param name="items">Items</param>
+        /// <returns>Start index in the array where items were placed</returns>
+        public long Add(Span<T> items)
         {
             if (items.Length == 0)
             {
-                return;
+                return GetNextItemIndex();
             }
 
-            lock (sync)
+            if (items.Length <= blockLength - firstFreeIndexInBlock)
             {
-                if (items.Length <= blockLength - firstFreeIndexInBlock)
-                {
-                    // if block contains enough space just copy the data
-                    items.CopyTo(data[^1].AsSpan(firstFreeIndexInBlock));
-                    firstFreeIndexInBlock += items.Length;
-                }
-                else
-                {
-                    items.Slice(0, blockLength - firstFreeIndexInBlock).CopyTo(data[^1].AsSpan(firstFreeIndexInBlock));
-                    var sourceInd = blockLength - firstFreeIndexInBlock;
-                    while (sourceInd + blockLength <= items.Length)
-                    {
-                        StartNewBlock();
-                        items.Slice(sourceInd, blockLength).CopyTo(data[^1].AsSpan());
-                        sourceInd += blockLength;
-                    }
-
-                    if (sourceInd < items.Length)
-                    {
-                        StartNewBlock();
-                        items.Slice(sourceInd).CopyTo(data[^1].AsSpan());
-                        firstFreeIndexInBlock = items.Length - sourceInd;
-                    }
-                    else
-                    {
-                        firstFreeIndexInBlock = blockLength;
-                    }
-
-                    CheckForCleanUp();
-                }
+                // if block contains enough space just copy the data
+                items.CopyTo(data[^1].AsSpan(firstFreeIndexInBlock));
+                firstFreeIndexInBlock += items.Length;
             }
-        }
-
-        public void Add(T item)
-        {
-            lock (sync)
+            else
             {
-                if (firstFreeIndexInBlock < blockLength)
-                {
-                    data[^1][firstFreeIndexInBlock++] = item;
-                }
-                else
+                items.Slice(0, blockLength - firstFreeIndexInBlock).CopyTo(data[^1].AsSpan(firstFreeIndexInBlock));
+                var sourceInd = blockLength - firstFreeIndexInBlock;
+                while (sourceInd + blockLength <= items.Length)
                 {
                     StartNewBlock();
-                    data[^1][0] = item;
-                    firstFreeIndexInBlock = 1;
-                    CheckForCleanUp();
+                    items.Slice(sourceInd, blockLength).CopyTo(data[^1].AsSpan());
+                    sourceInd += blockLength;
                 }
+
+                if (sourceInd < items.Length)
+                {
+                    StartNewBlock();
+                    items.Slice(sourceInd).CopyTo(data[^1].AsSpan());
+                    firstFreeIndexInBlock = items.Length - sourceInd;
+                }
+                else
+                {
+                    firstFreeIndexInBlock = blockLength;
+                }
+
+                CheckForCleanUp();
             }
+
+            return GetNextItemIndex() - items.Length;
+        }
+
+        /// <summary>
+        /// Add one item to the array
+        /// </summary>
+        /// <param name="item">Item</param>
+        /// <returns>Index in the array where the item was placed</returns>
+        public long Add(T item)
+        {
+            if (firstFreeIndexInBlock < blockLength)
+            {
+                data[^1][firstFreeIndexInBlock++] = item;
+            }
+            else
+            {
+                StartNewBlock();
+                data[^1][0] = item;
+                firstFreeIndexInBlock = 1;
+                CheckForCleanUp();
+            }
+
+            return GetNextItemIndex() - 1;
         }
 
         public void FreeTo(long index)
@@ -98,32 +111,29 @@ namespace FastQueue.Server.Core
                 throw new IndexOutOfRangeException($"Index must be greater then 0. Index: {index}");
             }
 
-            lock (sync)
+            var blockInd = GetBlockIndex(index);
+            var indInBlock = GetIndexInBlock(index);
+
+            if (blockInd < firstBusyBlockIndex
+                || (blockInd == firstBusyBlockIndex && indInBlock <= firstItemIndexInBlock))
             {
-                var blockInd = GetBlockIndex(index);
-                var indInBlock = GetIndexInBlock(index);
+                return;
+            }
 
-                if (blockInd < firstBusyBlockIndex
-                    || (blockInd == firstBusyBlockIndex && indInBlock <= firstItemIndexInBlock))
-                {
-                    return;
-                }
+            if (blockInd > data.Count
+                || (blockInd == (data.Count - 1) && indInBlock > firstFreeIndexInBlock)
+                || (blockInd == data.Count && indInBlock > 0))
+            {
+                throw new IndexOutOfRangeException($"Item with index {index} doesn't exist in the array");
+            }
 
-                if (blockInd > data.Count
-                    || (blockInd == (data.Count - 1) && indInBlock > firstFreeIndexInBlock)
-                    || (blockInd == data.Count && indInBlock > 0))
-                {
-                    throw new IndexOutOfRangeException($"Item with index {index} doesn't exist in the array");
-                }
+            var prevFirstBusyBlockIndex = firstBusyBlockIndex;
+            firstBusyBlockIndex = blockInd;
+            firstItemIndexInBlock = indInBlock;
 
-                var prevFirstBusyBlockIndex = firstBusyBlockIndex;
-                firstBusyBlockIndex = blockInd;
-                firstItemIndexInBlock = indInBlock;
-
-                if (prevFirstBusyBlockIndex != firstBusyBlockIndex)
-                {
-                    CheckForCleanUp();
-                }
+            if (prevFirstBusyBlockIndex != firstBusyBlockIndex)
+            {
+                CheckForCleanUp();
             }
         }
 
@@ -141,6 +151,7 @@ namespace FastQueue.Server.Core
             {
                 // allocate new block
                 data.Add(new T[blockLength]);
+                NumberOfBlockAllocations++;
             }
         }
 
@@ -164,6 +175,7 @@ namespace FastQueue.Server.Core
             if (data.Count >= dataListCapacity && newBlocksTotal < (data.Count / 2))
             {
                 var newData = new List<T[]>(Math.Max(dataListCapacity, newBlocksTotal));
+                NumberDataListAllocations++;
                 for (int i = firstFreeBlockIndex; i < data.Count; i++)
                 {
                     newData.Add(data[i]);
@@ -180,7 +192,7 @@ namespace FastQueue.Server.Core
         private long GetFirstItemIndex() => offset + firstBusyBlockIndex * blockLength + firstItemIndexInBlock;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private long GetLastItemIndex() => offset + (data.Count - 1) * blockLength + firstFreeIndexInBlock - 1;
+        private long GetNextItemIndex() => offset + (data.Count - 1) * blockLength + firstFreeIndexInBlock;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int GetBlockIndex(long index) => checked((int)((index - offset) / blockLength));
@@ -189,10 +201,21 @@ namespace FastQueue.Server.Core
         private int GetIndexInBlock(long index) => checked((int)((index - offset) % blockLength));
     }
 
-    internal class InfiniteArrayOptions
+    public class InfiniteArrayOptions
     {
         public int BlockLength { get; set; } = 100000;
         public int DataListCapacity { get; set; } = 128;
         public int MinimumFreeBlocks { get; set; } = 2;
+
+        public InfiniteArrayOptions()
+        {
+        }
+
+        public InfiniteArrayOptions(InfiniteArrayOptions options)
+        {
+            BlockLength = options.BlockLength;
+            DataListCapacity = options.DataListCapacity;
+            MinimumFreeBlocks = options.MinimumFreeBlocks;
+        }
     }
 }

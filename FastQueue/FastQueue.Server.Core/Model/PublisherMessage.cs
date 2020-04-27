@@ -4,9 +4,15 @@ using System.Text;
 
 namespace FastQueue.Server.Core.Model
 {
-    public class PublisherMessage
+    public readonly struct PublisherMessage
     {
-        public int SequenceNumber { get; set; }
-        public byte[] Message { get; set; }
+        public readonly long SequenceNumber;
+        public readonly ISpan Body;
+
+        public PublisherMessage(long sequenceNumber, ISpan body)
+        {
+            SequenceNumber = sequenceNumber;
+            Body = body;
+        }
     }
 }

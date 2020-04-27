@@ -10,10 +10,10 @@ namespace FastQueue.Server.Core
     {
         public ITopic CreateTopic(string topicName, TopicOptions options)
         {
-            if (options.Persistent)
-            {
-                throw new NotImplementedException();
-            }
+            //if (options.Persistent)
+            //{
+            //    throw new NotImplementedException();
+            //}
 
             return new InMemoryTopic(topicName);
         }
