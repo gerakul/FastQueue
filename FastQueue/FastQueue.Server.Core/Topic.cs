@@ -1,7 +1,10 @@
 ﻿using FastQueue.Server.Core.Model;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
@@ -10,11 +13,16 @@ namespace FastQueue.Server.Core
         private InfiniteArray<Message> data;
         private HashSet<TopicWriter> writers;
         private long offset;
+        private long persistedOffset;
+        private int confirmationIntervalMilliseconds;
         private object dataSync = new object();
         private object writersSync = new object();
 
         public Topic(long initialOffset, TopicOptions topicOptions)
         {
+            confirmationIntervalMilliseconds = topicOptions.ConfirmationIntervalMilliseconds;
+            offset = initialOffset;
+            persistedOffset = initialOffset;
             data = new InfiniteArray<Message>(initialOffset, topicOptions.DataArrayOptions);
             writers = new HashSet<TopicWriter>();
         }
@@ -41,7 +49,8 @@ namespace FastQueue.Server.Core
             lock (dataSync)
             {
                 var enqueuedTime = DateTimeOffset.UtcNow;
-                var ind = data.Add(new Message(offset++, enqueuedTime, message.Body));
+                var ind = data.Add(new Message(offset, enqueuedTime, message.Body));
+                offset++;
                 return new TopicWriteResult(ind, enqueuedTime);
             }
         }
@@ -71,10 +80,59 @@ namespace FastQueue.Server.Core
                 writers.Remove(writer);
             }
         }
+
+        public async Task ConfirmationLoop(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                bool offsetChanged;
+                lock (dataSync)
+                {
+                    offsetChanged = persistedOffset != offset;
+                    if (offsetChanged)
+                    {
+                        // flush
+                        persistedOffset = offset;
+                    }
+                }
+
+                if (offsetChanged)
+                {
+                    TopicWriter[] writersArr;
+                    int len;
+                    lock (writersSync)
+                    {
+                        len = writers.Count;
+                        if (len == 0)
+                        {
+                            goto delay;
+                        }
+
+                        writersArr = ArrayPool<TopicWriter>.Shared.Rent(len);
+                        writers.CopyTo(writersArr, 0, len);
+                    }
+
+                    try
+                    {
+                        for (int i = 0; i < len; i++)
+                        {
+                            writersArr[i].SendAck(persistedOffset);
+                        }
+                    }
+                    finally
+                    {
+                        ArrayPool<TopicWriter>.Shared.Return(writersArr);
+                    }
+                }
+
+                delay: await Task.Delay(confirmationIntervalMilliseconds);
+            }
+        }
     }
 
     public class TopicOptions
     {
+        public int ConfirmationIntervalMilliseconds { get; set; } = 50;
         public InfiniteArrayOptions DataArrayOptions { get; set; } = new InfiniteArrayOptions();
 
         public TopicOptions()
