@@ -40,12 +40,12 @@ namespace FastQueue.Server.Core
         /// Add range of items to the array
         /// </summary>
         /// <param name="items">Items</param>
-        /// <returns>Start index in the array where items were placed</returns>
+        /// <returns>Index of the new last item in the array</returns>
         public long Add(Span<T> items)
         {
             if (items.Length == 0)
             {
-                return GetNextItemIndex();
+                return GetLastItemIndex();
             }
 
             if (items.Length <= blockLength - firstFreeIndexInBlock)
@@ -79,14 +79,14 @@ namespace FastQueue.Server.Core
                 CheckForCleanUp();
             }
 
-            return GetNextItemIndex() - items.Length;
+            return GetLastItemIndex();
         }
 
         /// <summary>
         /// Add one item to the array
         /// </summary>
         /// <param name="item">Item</param>
-        /// <returns>Index in the array where the item was placed</returns>
+        /// <returns>Index of the new last item in the array</returns>
         public long Add(T item)
         {
             if (firstFreeIndexInBlock < blockLength)
@@ -101,7 +101,7 @@ namespace FastQueue.Server.Core
                 CheckForCleanUp();
             }
 
-            return GetNextItemIndex() - 1;
+            return GetLastItemIndex();
         }
 
         public void FreeTo(long index)
@@ -192,7 +192,7 @@ namespace FastQueue.Server.Core
         private long GetFirstItemIndex() => offset + firstBusyBlockIndex * blockLength + firstItemIndexInBlock;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private long GetNextItemIndex() => offset + (data.Count - 1) * blockLength + firstFreeIndexInBlock;
+        private long GetLastItemIndex() => offset + (data.Count - 1) * blockLength + firstFreeIndexInBlock - 1;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int GetBlockIndex(long index) => checked((int)((index - offset) / blockLength));

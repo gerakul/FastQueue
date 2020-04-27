@@ -19,7 +19,7 @@ namespace FastQueue.Server.Core
             writers = new HashSet<TopicWriter>();
         }
 
-        public void Write(Span<PublisherMessage> messages)
+        public TopicWriteResult Write(Span<PublisherMessage> messages)
         {
             lock (dataSync)
             {
@@ -30,16 +30,19 @@ namespace FastQueue.Server.Core
                     newMessages[i] = new Message(offset + i, enqueuedTime, messages[i].Body);
                 }
 
-                data.Add(newMessages);
+                var ind = data.Add(newMessages);
                 offset += messages.Length;
+                return new TopicWriteResult(ind, enqueuedTime);
             }
         }
 
-        public void Write(PublisherMessage message)
+        public TopicWriteResult Write(PublisherMessage message)
         {
             lock (dataSync)
             {
-                data.Add(new Message(offset++, DateTimeOffset.UtcNow, message.Body));
+                var enqueuedTime = DateTimeOffset.UtcNow;
+                var ind = data.Add(new Message(offset++, enqueuedTime, message.Body));
+                return new TopicWriteResult(ind, enqueuedTime);
             }
         }
 
