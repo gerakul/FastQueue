@@ -12,5 +12,11 @@ namespace FastQueue.Server.Core.Model
             SequenceNumber = sequenceNumber;
             Message = message;
         }
+
+        public WriteRequest(long sequenceNumber, byte[] message)
+        {
+            SequenceNumber = sequenceNumber;
+            Message = message;
+        }
     }
 }

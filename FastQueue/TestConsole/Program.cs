@@ -14,9 +14,83 @@ namespace TestConsole
     {
         static async Task Main(string[] args)
         {
-            await InfiniteArrayTest();
-            return;
+            //await InfiniteArrayTest();
+            //await TopicPerformance();
+            await TopicTest();
 
+            Console.WriteLine("end");
+            await Task.CompletedTask;
+        }
+
+        static async Task TopicTest()
+        {
+            var topic = new Topic(0, new TopicOptions
+            {
+                ConfirmationIntervalMilliseconds = 100,
+                DataArrayOptions = new InfiniteArrayOptions
+                {
+                    BlockLength = 100000,
+                    DataListCapacity = 128,
+                    MinimumFreeBlocks = 4
+                }
+            });
+
+            Task.Factory.StartNew(() => topic.ConfirmationLoop(default), TaskCreationOptions.LongRunning);
+
+            var writer = topic.CreateWriter(async ack =>
+            {
+                Console.WriteLine($"Confirmed {ack.SequenceNumber}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+                await Task.CompletedTask;
+            });
+
+            long seqNum = 1;
+            for (int i = 0; i < 10; i++)
+            {
+                writer.Write(new WriteRequest(seqNum++, new byte[] { 1, 2, 3, (byte)i }));
+            }
+            await Task.Delay(500);
+
+
+            byte[] buffer = new byte[1000000];
+            new Random(DateTimeOffset.UtcNow.Millisecond).NextBytes(buffer);
+            var messages = new ReadOnlyMemory<byte>[1000];
+
+            int start = 0;
+            int length = 100;
+            for (int i = 0; i < messages.Length; i++)
+            {
+                if (start + length > messages.Length)
+                {
+                    start = 0;
+                }
+
+                messages[i] = buffer.AsMemory(start, length);
+                start += length;
+            }
+
+            start = 0;
+            length = 100;
+            Console.WriteLine($"Start sending: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+
+            for (long i = 0; i < 10_000_000; i += length)
+            {
+                if (start + length > messages.Length)
+                {
+                    start = 0;
+                }
+
+                writer.Write(new WriteManyRequest(seqNum++, messages.AsMemory(start, length)));
+
+                start += length;
+            }
+
+            Console.WriteLine($"Stop sending: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+
+            await Task.Delay(1000);
+        }
+
+        static async Task TopicPerformance()
+        {
             var topic = new Topic(0, new TopicOptions
             {
                 DataArrayOptions = new InfiniteArrayOptions
@@ -70,8 +144,6 @@ namespace TestConsole
             sw.Stop();
 
             Console.WriteLine($"{sw.ElapsedMilliseconds}");
-            Console.WriteLine("end");
-            await Task.CompletedTask;
         }
 
         static async Task InfiniteArrayTest()
