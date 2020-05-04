@@ -63,11 +63,11 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public TopicWriter CreateWriter()
+        public TopicWriter CreateWriter(Func<PublisherAck, Task> ackHandler)
         {
             lock (writersSync)
             {
-                var writer = new TopicWriter(this);
+                var writer = new TopicWriter(this, ackHandler);
                 writers.Add(writer);
                 return writer;
             }
@@ -91,41 +91,47 @@ namespace FastQueue.Server.Core
                     offsetChanged = persistedOffset != offset;
                     if (offsetChanged)
                     {
-                        // flush
+                        // ::: flush
                         persistedOffset = offset;
                     }
                 }
 
                 if (offsetChanged)
                 {
-                    TopicWriter[] writersArr;
-                    int len;
-                    lock (writersSync)
-                    {
-                        len = writers.Count;
-                        if (len == 0)
-                        {
-                            goto delay;
-                        }
-
-                        writersArr = ArrayPool<TopicWriter>.Shared.Rent(len);
-                        writers.CopyTo(writersArr, 0, len);
-                    }
-
-                    try
-                    {
-                        for (int i = 0; i < len; i++)
-                        {
-                            writersArr[i].SendAck(persistedOffset);
-                        }
-                    }
-                    finally
-                    {
-                        ArrayPool<TopicWriter>.Shared.Return(writersArr);
-                    }
+                    TaskHelper.FireAndForget(FireAcks);
                 }
 
-            delay: await Task.Delay(confirmationIntervalMilliseconds);
+                await Task.Delay(confirmationIntervalMilliseconds);
+            }
+        }
+
+        private void FireAcks()
+        {
+            TopicWriter[] writersArr;
+            int len;
+            lock (writersSync)
+            {
+                len = writers.Count;
+                if (len == 0)
+                {
+                    return;
+                }
+
+                writersArr = ArrayPool<TopicWriter>.Shared.Rent(len);
+                writers.CopyTo(writersArr, 0, len);
+            }
+
+            try
+            {
+                for (int i = 0; i < len; i++)
+                {
+                    // sending most recent persistedOffset
+                    writersArr[i].SendAck(persistedOffset);
+                }
+            }
+            finally
+            {
+                ArrayPool<TopicWriter>.Shared.Return(writersArr);
             }
         }
     }

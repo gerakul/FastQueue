@@ -70,13 +70,21 @@ namespace FastQueue.Server.Core
 
         internal void SendAck(long persistedId)
         {
-            long idToAck = -1;
+            long idToAck = FindSequenceNumberToAck(persistedId);
+            if (idToAck >= 0)
+            {
+                TaskHelper.FireAndForget(async () => await RunAckHandler(new PublisherAck(idToAck)));
+            }
+        }
+
+        private long FindSequenceNumberToAck(long persistedId)
+        {
             lock (sync)
             {
                 if (disposed)
                 {
                     // do not throw exception here
-                    return;
+                    return -1;
                 }
 
                 var blocks = idMap.GetDataBlocks();
@@ -89,9 +97,9 @@ namespace FastQueue.Server.Core
                     {
                         if (m[j].ID <= persistedId)
                         {
-                            idToAck = m[j].WriterID;
+                            var idToAck = m[j].WriterID;
                             idMap.FreeTo(ind + 1);
-                            goto ack;
+                            return idToAck;
                         }
 
                         ind--;
@@ -99,9 +107,7 @@ namespace FastQueue.Server.Core
                 }
             }
 
-            return;
-        // not nice but efficient
-        ack: TaskHelper.FireAndForget(async () => await RunAckHandler(new PublisherAck(idToAck)));
+            return -1;
         }
 
         private async Task RunAckHandler(PublisherAck ack)
