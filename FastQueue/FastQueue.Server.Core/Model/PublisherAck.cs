@@ -4,8 +4,13 @@ using System.Text;
 
 namespace FastQueue.Server.Core.Model
 {
-    public class PublisherAck
+    public readonly struct PublisherAck
     {
-        public int SequenceNumber { get; set; }
+        public readonly long SequenceNumber;
+
+        public PublisherAck(long sequenceNumber)
+        {
+            SequenceNumber = sequenceNumber;
+        }
     }
 }

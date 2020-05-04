@@ -125,7 +125,7 @@ namespace FastQueue.Server.Core
                     }
                 }
 
-                delay: await Task.Delay(confirmationIntervalMilliseconds);
+            delay: await Task.Delay(confirmationIntervalMilliseconds);
             }
         }
     }

@@ -137,6 +137,28 @@ namespace FastQueue.Server.Core
             }
         }
 
+        public ReadOnlyMemory<T>[] GetDataBlocks()
+        {
+            var arr = new ReadOnlyMemory<T>[data.Count - firstBusyBlockIndex];
+
+            if (firstBusyBlockIndex == data.Count - 1)
+            {
+                arr[0] = data[firstBusyBlockIndex].AsMemory(firstItemIndexInBlock, firstFreeIndexInBlock - firstItemIndexInBlock);
+                return arr;
+            }
+
+            arr[0] = data[firstBusyBlockIndex].AsMemory(firstItemIndexInBlock);
+            var ind = 1;
+            for (int i = firstBusyBlockIndex + 1; i < data.Count - 1; i++)
+            {
+                arr[ind++] = data[i].AsMemory();
+            }
+
+            arr[ind] = data[^1].AsMemory(0, firstFreeIndexInBlock);
+
+            return arr;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void StartNewBlock()
         {
@@ -189,10 +211,10 @@ namespace FastQueue.Server.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private long GetFirstItemIndex() => offset + firstBusyBlockIndex * blockLength + firstItemIndexInBlock;
+        public long GetFirstItemIndex() => offset + firstBusyBlockIndex * blockLength + firstItemIndexInBlock;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private long GetLastItemIndex() => offset + (data.Count - 1) * blockLength + firstFreeIndexInBlock - 1;
+        public long GetLastItemIndex() => offset + (data.Count - 1) * blockLength + firstFreeIndexInBlock - 1;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int GetBlockIndex(long index) => checked((int)((index - offset) / blockLength));

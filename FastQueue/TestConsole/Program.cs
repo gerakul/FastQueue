@@ -14,6 +14,9 @@ namespace TestConsole
     {
         static async Task Main(string[] args)
         {
+            await InfiniteArrayTest();
+            return;
+
             var topic = new Topic(0, new TopicOptions
             {
                 DataArrayOptions = new InfiniteArrayOptions
@@ -46,7 +49,7 @@ namespace TestConsole
 
             start = 0;
             length = 100;
-            for (long i = 0; i < 100_000_000; i += length)
+            for (long i = 0; i < 100_000_00; i += length)
             {
                 if (start + length > messages.Length)
                 {
@@ -69,6 +72,31 @@ namespace TestConsole
             Console.WriteLine($"{sw.ElapsedMilliseconds}");
             Console.WriteLine("end");
             await Task.CompletedTask;
+        }
+
+        static async Task InfiniteArrayTest()
+        {
+            var data = new InfiniteArray<long>(0, new InfiniteArrayOptions
+            {
+                BlockLength = 10,
+                DataListCapacity = 5,
+                MinimumFreeBlocks = 4
+            });
+
+            for (long i = 0; i < 127; i++)
+            {
+                data.Add(i);
+
+                if (i > 8 && i % 5 == 0)
+                {
+                    data.FreeTo(i - 8);
+                }
+            }
+
+            data.FreeTo(124);
+
+
+            var blocks = data.GetDataBlocks();
         }
     }
 }
