@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
+    // ::: add stop and wait until all confirmed
     public class TopicWriter : IDisposable
     {
         private readonly struct IdPair

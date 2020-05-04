@@ -31,7 +31,7 @@ namespace TestConsole
                 {
                     BlockLength = 100000,
                     DataListCapacity = 128,
-                    MinimumFreeBlocks = 4
+                    MinimumFreeBlocks = 20
                 }
             });
 
@@ -40,6 +40,7 @@ namespace TestConsole
             var writer = topic.CreateWriter(async ack =>
             {
                 Console.WriteLine($"Confirmed {ack.SequenceNumber}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+                topic.FreeTo(Math.Max(ack.SequenceNumber - 500, 0));
                 await Task.CompletedTask;
             });
 
@@ -72,14 +73,15 @@ namespace TestConsole
             length = 100;
             Console.WriteLine($"Start sending: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
 
-            for (long i = 0; i < 10_000_000; i += length)
+            for (long i = 0; i < 100_000_000; i += length)
             {
                 if (start + length > messages.Length)
                 {
                     start = 0;
                 }
 
-                writer.Write(new WriteManyRequest(seqNum++, messages.AsMemory(start, length)));
+                seqNum += length;
+                writer.Write(new WriteManyRequest(seqNum, messages.AsMemory(start, length)));
 
                 start += length;
             }
