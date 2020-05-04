@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace FastQueue.Server.Core.Model
 {
@@ -8,9 +6,9 @@ namespace FastQueue.Server.Core.Model
     {
         public readonly long ID;
         public readonly DateTimeOffset EnqueuedTime;
-        public readonly ISpan Body;
+        public readonly ReadOnlyMemory<byte> Body;
 
-        public Message(long id, DateTimeOffset enqueuedTime, ISpan body)
+        public Message(long id, DateTimeOffset enqueuedTime, ReadOnlyMemory<byte> body)
         {
             ID = id;
             EnqueuedTime = enqueuedTime;

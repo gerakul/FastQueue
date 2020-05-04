@@ -6,7 +6,7 @@ using System.Text;
 
 namespace FastQueue.Server.Core
 {
-    public class TopicWriter
+    public class TopicWriter : IDisposable
     {
         private readonly struct IdPair
         {
@@ -22,6 +22,8 @@ namespace FastQueue.Server.Core
 
         private Topic topic;
         private InfiniteArray<IdPair> idMap;
+        private object sync = new object();
+        private bool disposed = false;
 
         internal TopicWriter(Topic topic)
         {
@@ -34,15 +36,51 @@ namespace FastQueue.Server.Core
             });
         }
 
-        public void Write(Span<PublisherMessage> messages)
+        public void Write(WriteManyRequest request)
         {
-            var writeResult = topic.Write(messages);
-            idMap.Add(new IdPair(messages[^1].SequenceNumber, writeResult.LastInsertedIndex));
+            if (disposed)
+            {
+                return; // throw exception?
+            }
+
+            var writeResult = topic.Write(request.Messages.Span);
+            idMap.Add(new IdPair(request.SequenceNumber, writeResult.LastInsertedIndex));
         }
 
-        internal bool SendAck(long persistedId)
+        public void Write(WriteRequest request)
         {
-            return true;
+            if (disposed)
+            {
+                return; // throw exception?
+            }
+
+            var writeResult = topic.Write(request.Message);
+            idMap.Add(new IdPair(request.SequenceNumber, writeResult.LastInsertedIndex));
+        }
+
+        internal void SendAck(long persistedId)
+        {
+            if (disposed)
+            {
+                return; // throw exception?
+            }
+        }
+
+        ~TopicWriter()
+        {
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+            topic.DeleteWriter(this);
+            topic = null;
         }
     }
 }

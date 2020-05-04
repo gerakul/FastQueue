@@ -1,10 +1,6 @@
 ﻿using FastQueue.Server.Core.Abstractions;
 using FastQueue.Server.Core.Exceptions;
-using FastQueue.Server.Core.Model;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core

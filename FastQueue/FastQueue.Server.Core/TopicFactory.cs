@@ -15,7 +15,8 @@ namespace FastQueue.Server.Core
             //    throw new NotImplementedException();
             //}
 
-            return new InMemoryTopic(topicName);
+            //return new InMemoryTopic(topicName);
+            throw new NotImplementedException();
         }
     }
 }

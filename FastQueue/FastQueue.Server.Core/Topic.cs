@@ -27,15 +27,15 @@ namespace FastQueue.Server.Core
             writers = new HashSet<TopicWriter>();
         }
 
-        public TopicWriteResult Write(Span<PublisherMessage> messages)
+        public TopicWriteResult Write(ReadOnlySpan<ReadOnlyMemory<byte>> messages)
         {
             lock (dataSync)
             {
                 var enqueuedTime = DateTimeOffset.UtcNow;
                 var newMessages = new Message[messages.Length];
-                for (int i = 0; i < messages.Length; i++)
+                for (int i = 0; i < newMessages.Length; i++)
                 {
-                    newMessages[i] = new Message(offset + i, enqueuedTime, messages[i].Body);
+                    newMessages[i] = new Message(offset + i, enqueuedTime, messages[i]);
                 }
 
                 var ind = data.Add(newMessages);
@@ -44,12 +44,12 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public TopicWriteResult Write(PublisherMessage message)
+        public TopicWriteResult Write(ReadOnlyMemory<byte> message)
         {
             lock (dataSync)
             {
                 var enqueuedTime = DateTimeOffset.UtcNow;
-                var ind = data.Add(new Message(offset, enqueuedTime, message.Body));
+                var ind = data.Add(new Message(offset, enqueuedTime, message));
                 offset++;
                 return new TopicWriteResult(ind, enqueuedTime);
             }

@@ -27,18 +27,18 @@ namespace TestConsole
             byte[] buffer = new byte[1000000];
             new Random(DateTimeOffset.UtcNow.Millisecond).NextBytes(buffer);
 
-            var pubmessages = new PublisherMessage[1000];
+            var messages = new ReadOnlyMemory<byte>[1000];
 
             int start = 0;
             int length = 100;
-            for (int i = 0; i < pubmessages.Length; i++)
+            for (int i = 0; i < messages.Length; i++)
             {
-                if (start + length > pubmessages.Length)
+                if (start + length > messages.Length)
                 {
                     start = 0;
                 }
 
-                pubmessages[i] = new PublisherMessage(i, new BufferedBytes(buffer, start, length));
+                messages[i] = buffer.AsMemory(start, length);
                 start += length;
             }
 
@@ -48,12 +48,12 @@ namespace TestConsole
             length = 100;
             for (long i = 0; i < 100_000_000; i += length)
             {
-                if (start + length > pubmessages.Length)
+                if (start + length > messages.Length)
                 {
                     start = 0;
                 }
 
-                topic.Write(pubmessages.AsSpan(start, length));
+                topic.Write(messages.AsSpan(start, length));
 
                 start += length;
 
