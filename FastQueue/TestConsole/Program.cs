@@ -24,7 +24,16 @@ namespace TestConsole
 
         static async Task TopicTest()
         {
-            var topic = new Topic(0, new TopicOptions
+            var storage = new FilePersistentStorage(new FilePersistentStorageOptions
+            {
+                FileLengthThreshold = 100 * 1024 * 1024,
+                DirectoryPath = @"C:\temp\storage",
+                NamePrefix = "Data"
+            });
+
+            storage.Restore();
+
+            var topic = new Topic(0, storage, new TopicOptions
             {
                 ConfirmationIntervalMilliseconds = 100,
                 DataArrayOptions = new InfiniteArrayOptions
@@ -73,7 +82,7 @@ namespace TestConsole
             length = 100;
             Console.WriteLine($"Start sending: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
 
-            for (long i = 0; i < 100_000_000; i += length)
+            for (long i = 0; i < 10_000_000; i += length)
             {
                 if (start + length > messages.Length)
                 {
@@ -93,7 +102,7 @@ namespace TestConsole
 
         static async Task TopicPerformance()
         {
-            var topic = new Topic(0, new TopicOptions
+            var topic = new Topic(0, null, new TopicOptions
             {
                 DataArrayOptions = new InfiniteArrayOptions
                 {

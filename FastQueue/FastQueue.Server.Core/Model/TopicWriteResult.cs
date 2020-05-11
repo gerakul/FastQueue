@@ -7,9 +7,9 @@ namespace FastQueue.Server.Core.Model
     internal readonly struct TopicWriteResult
     {
         public readonly long LastInsertedIndex;
-        public readonly DateTimeOffset EnqueuedTime;
+        public readonly DateTime EnqueuedTime;
 
-        public TopicWriteResult(long lastInsertedIndex, DateTimeOffset enqueuedTime)
+        public TopicWriteResult(long lastInsertedIndex, DateTime enqueuedTime)
         {
             LastInsertedIndex = lastInsertedIndex;
             EnqueuedTime = enqueuedTime;

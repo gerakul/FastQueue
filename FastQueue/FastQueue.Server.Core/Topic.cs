@@ -1,4 +1,5 @@
-﻿using FastQueue.Server.Core.Model;
+﻿using FastQueue.Server.Core.Abstractions;
+using FastQueue.Server.Core.Model;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -13,16 +14,18 @@ namespace FastQueue.Server.Core
         private InfiniteArray<Message> data;
         private HashSet<TopicWriter> writers;
         private long offset;
+        private readonly IPersistentStorage persistentStorage;
         private long persistedOffset;
         private int confirmationIntervalMilliseconds;
         private object dataSync = new object();
         private object writersSync = new object();
 
-        public Topic(long initialOffset, TopicOptions topicOptions)
+        public Topic(long initialOffset, IPersistentStorage persistentStorage, TopicOptions topicOptions)
         {
-            confirmationIntervalMilliseconds = topicOptions.ConfirmationIntervalMilliseconds;
             offset = initialOffset;
             persistedOffset = initialOffset;
+            this.persistentStorage = persistentStorage;
+            confirmationIntervalMilliseconds = topicOptions.ConfirmationIntervalMilliseconds;
             data = new InfiniteArray<Message>(initialOffset, topicOptions.DataArrayOptions);
             writers = new HashSet<TopicWriter>();
         }
@@ -31,7 +34,7 @@ namespace FastQueue.Server.Core
         {
             lock (dataSync)
             {
-                var enqueuedTime = DateTimeOffset.UtcNow;
+                var enqueuedTime = DateTime.UtcNow;
                 var newMessages = new Message[messages.Length];
                 for (int i = 0; i < newMessages.Length; i++)
                 {
@@ -39,6 +42,7 @@ namespace FastQueue.Server.Core
                 }
 
                 var ind = data.Add(newMessages);
+                persistentStorage.Write(newMessages.AsSpan());
                 offset += messages.Length;
                 return new TopicWriteResult(ind, enqueuedTime);
             }
@@ -48,8 +52,10 @@ namespace FastQueue.Server.Core
         {
             lock (dataSync)
             {
-                var enqueuedTime = DateTimeOffset.UtcNow;
-                var ind = data.Add(new Message(offset, enqueuedTime, message));
+                var enqueuedTime = DateTime.UtcNow;
+                var newMessage = new Message(offset, enqueuedTime, message);
+                var ind = data.Add(newMessage);
+                persistentStorage.Write(newMessage);
                 offset++;
                 return new TopicWriteResult(ind, enqueuedTime);
             }
@@ -60,6 +66,7 @@ namespace FastQueue.Server.Core
             lock (dataSync)
             {
                 data.FreeTo(offset);
+                persistentStorage.FreeTo(offset);
             }
         }
 
@@ -91,7 +98,7 @@ namespace FastQueue.Server.Core
                     offsetChanged = persistedOffset != offset;
                     if (offsetChanged)
                     {
-                        // ::: flush
+                        persistentStorage.Flush();
                         persistedOffset = offset;
                     }
                 }
@@ -147,6 +154,7 @@ namespace FastQueue.Server.Core
 
         public TopicOptions(TopicOptions options)
         {
+            ConfirmationIntervalMilliseconds = options.ConfirmationIntervalMilliseconds;
             DataArrayOptions = new InfiniteArrayOptions(options.DataArrayOptions);
         }
     }

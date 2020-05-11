@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
-    // ::: add stop and wait until all confirmed
     public class TopicWriter : IDisposable
     {
         private readonly struct IdPair
@@ -120,7 +119,6 @@ namespace FastQueue.Server.Core
             catch
             {
                 // this is ackHandler responsibility to worry about error handling
-                // no matter what, dispose if we cannot
                 Dispose();
                 throw;
             }
