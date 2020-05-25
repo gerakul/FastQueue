@@ -1,8 +1,7 @@
 ﻿using FastQueue.Server.Core.Exceptions;
 using FastQueue.Server.Core.Model;
 using System;
-using System.Collections.Generic;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
@@ -10,31 +9,34 @@ namespace FastQueue.Server.Core
     internal class Subscriber
     {
         private readonly Subscription subscription;
-        private readonly Func<ReadOnlyMemory<Message>, Task> push;
+        private readonly Func<ReadOnlyMemory<Message>, CancellationToken, Task> push;
 
         private long sentMessageId;
+        private CancellationTokenSource cancellationTokenSource;
 
-        public Subscriber(Subscription subscription, Func<ReadOnlyMemory<Message>, Task> push, long completedMessageId)
+        public Subscriber(Subscription subscription, Func<ReadOnlyMemory<Message>, CancellationToken, Task> push, long completedMessageId)
         {
             this.subscription = subscription;
             this.push = push;
             sentMessageId = completedMessageId;
+            cancellationTokenSource = new CancellationTokenSource();
         }
 
         internal async Task Push(ReadOnlyMemory<Message>[] data, long startMessageId)
         {
+            var cancellationToken = cancellationTokenSource.Token;
             int blockInd = 0;
             long blockStartMessageId = startMessageId;
             bool dataSent = false;
             long sentCount = 0;
-            while (blockInd < data.Length)
+            while (blockInd < data.Length && !cancellationToken.IsCancellationRequested)
             {
                 var blockLen = data[blockInd].Length;
 
                 if (sentMessageId < blockStartMessageId + blockLen - 1)
                 {
                     var memory = data[blockInd].Slice(checked((int)(sentMessageId - blockStartMessageId)) + 1);
-                    await push(memory);
+                    await push(memory, cancellationToken);
                     sentCount = memory.Length;
                     dataSent = true;
                     blockInd++;
@@ -45,9 +47,9 @@ namespace FastQueue.Server.Core
                 blockStartMessageId += blockLen;
             }
 
-            while (blockInd < data.Length)
+            while (blockInd < data.Length && !cancellationToken.IsCancellationRequested)
             {
-                await push(data[blockInd]);
+                await push(data[blockInd], cancellationToken);
                 sentCount = data[blockInd].Length;
                 blockInd++;
             }
@@ -62,6 +64,11 @@ namespace FastQueue.Server.Core
                     throw new FatalException($"Offset doesn't match ID");
                 }
             }
+        }
+
+        internal void Cancel()
+        {
+            cancellationTokenSource.Cancel();
         }
     }
 }
