@@ -1,7 +1,9 @@
 ﻿using FastQueue.Server.Core.Abstractions;
+using FastQueue.Server.Core.Exceptions;
 using FastQueue.Server.Core.Model;
 using System;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
@@ -13,21 +15,25 @@ namespace FastQueue.Server.Core
     {
         private InfiniteArray<Message> data;
         private HashSet<TopicWriter> writers;
+        private ConcurrentDictionary<string, Subscription> subscriptions;
         private long offset;
+        private readonly string name;
         private readonly IPersistentStorage persistentStorage;
         private long persistedOffset;
         private int confirmationIntervalMilliseconds;
         private object dataSync = new object();
         private object writersSync = new object();
 
-        public Topic(long initialOffset, IPersistentStorage persistentStorage, TopicOptions topicOptions)
+        public Topic(long initialOffset, string name, IPersistentStorage persistentStorage, TopicOptions topicOptions)
         {
             offset = initialOffset;
             persistedOffset = initialOffset;
+            this.name = name;
             this.persistentStorage = persistentStorage;
             confirmationIntervalMilliseconds = topicOptions.ConfirmationIntervalMilliseconds;
             data = new InfiniteArray<Message>(initialOffset, topicOptions.DataArrayOptions);
             writers = new HashSet<TopicWriter>();
+            subscriptions = new ConcurrentDictionary<string, Subscription>();
         }
 
         public TopicWriteResult Write(ReadOnlySpan<ReadOnlyMemory<byte>> messages)
@@ -78,6 +84,12 @@ namespace FastQueue.Server.Core
                 writers.Add(writer);
                 return writer;
             }
+        }
+
+        public void CreateSubscription(string subscriptionName)
+        {
+            subscriptions.AddOrUpdate(subscriptionName, subName => new Subscription(subscriptionName),
+                (subName, y) => throw new SubscriptionManagementException($"Subscription {subName} already exists in the topic {name}"));
         }
 
         internal void DeleteWriter(TopicWriter writer)

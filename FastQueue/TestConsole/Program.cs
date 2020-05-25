@@ -33,7 +33,7 @@ namespace TestConsole
 
             storage.Restore();
 
-            var topic = new Topic(0, storage, new TopicOptions
+            var topic = new Topic(0, "test", storage, new TopicOptions
             {
                 ConfirmationIntervalMilliseconds = 100,
                 DataArrayOptions = new InfiniteArrayOptions
@@ -102,7 +102,7 @@ namespace TestConsole
 
         static async Task TopicPerformance()
         {
-            var topic = new Topic(0, null, new TopicOptions
+            var topic = new Topic(0, "test", null, new TopicOptions
             {
                 DataArrayOptions = new InfiniteArrayOptions
                 {
