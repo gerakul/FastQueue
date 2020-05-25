@@ -80,7 +80,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public void DeleteWriter(TopicWriter writer)
+        internal void DeleteWriter(TopicWriter writer)
         {
             lock (writersSync)
             {

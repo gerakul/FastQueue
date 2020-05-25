@@ -56,7 +56,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal void CreateSubscriber(Func<ReadOnlyMemory<Message>, CancellationToken, Task> push)
+        public Subscriber CreateSubscriber(Func<ReadOnlyMemory<Message>, CancellationToken, Task> push)
         {
             lock (sync)
             {
@@ -66,6 +66,7 @@ namespace FastQueue.Server.Core
                 }
 
                 subscriber = new Subscriber(this, push, completedMessageId);
+                return subscriber;
             }
         }
 
@@ -78,7 +79,6 @@ namespace FastQueue.Server.Core
                     return;
                 }
 
-                subscriber.Cancel();
                 subscriber = null;
             }
         }
