@@ -89,7 +89,7 @@ namespace FastQueue.Server.Core
                 while (blockInd < data.Length && !cancellationToken.IsCancellationRequested)
                 {
                     await RunPushHandler(data[blockInd], cancellationToken);
-                    sentCount = data[blockInd].Length;
+                    sentCount += data[blockInd].Length;
                     blockInd++;
                 }
 

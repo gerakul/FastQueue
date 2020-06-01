@@ -89,7 +89,6 @@ namespace FastQueue.Server.Core
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-
                 try
                 {
                     var persistedOffset = topic.PersistedOffset;

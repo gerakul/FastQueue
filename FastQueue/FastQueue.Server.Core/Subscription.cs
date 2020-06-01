@@ -6,16 +6,16 @@ using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
-    internal class Subscription
+    internal class Subscription : IDisposable
     {
         private long completedMessageId;
         private string name;
         private Topic topic;
         private Subscriber subscriber;
-        private int running;
         private object sync = new object();
 
         internal Topic Topic => topic;
+        internal long CompletedMessageId => completedMessageId;
 
         public Subscription(string name, Topic topic)
         {
@@ -61,6 +61,11 @@ namespace FastQueue.Server.Core
                 subscriber.StartPushLoop();
                 subscriber = null;
             }
+        }
+
+        public void Dispose()
+        {
+            subscriber?.Dispose();
         }
     }
 }

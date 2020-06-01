@@ -44,12 +44,21 @@ namespace TestConsole
                 }
             });
 
-            Task.Factory.StartNew(() => topic.PersistenceLoop(), TaskCreationOptions.LongRunning);
+            topic.Start();
+
+            int receivedCount = 0;
+            topic.CreateSubscription("sub1");
+            var sub = topic.Subscribe("sub1", async (ms, ct) =>
+            {
+                var cnt = Interlocked.Add(ref receivedCount, ms.Length);
+                Console.WriteLine($"Received {cnt}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+
+                await Task.CompletedTask;
+            });
 
             var writer = topic.CreateWriter(async (ack, ct) =>
             {
                 Console.WriteLine($"Confirmed {ack.SequenceNumber}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
-                topic.FreeTo(Math.Max(ack.SequenceNumber - 500, 0));
                 await Task.CompletedTask;
             });
 
@@ -98,7 +107,7 @@ namespace TestConsole
 
             Console.WriteLine($"Stop sending: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
 
-            await Task.Delay(1000);
+            await Task.Delay(2000);
         }
 
         static async Task TopicPerformance()
