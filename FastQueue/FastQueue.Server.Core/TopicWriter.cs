@@ -28,7 +28,7 @@ namespace FastQueue.Server.Core
         private Topic topic;
         private Func<PublisherAck, CancellationToken, Task> ackHandler;
         private InfiniteArray<IdPair> idMap;
-        private long lastAckedOffset;
+        private long lastAckedMessageId;
         private object sync = new object();
         private bool disposed = false;
         private CancellationTokenSource cancellationTokenSource;
@@ -37,7 +37,7 @@ namespace FastQueue.Server.Core
         {
             this.topic = topic;
             this.ackHandler = ackHandler;
-            lastAckedOffset = 0;
+            lastAckedMessageId = -1;
             cancellationTokenSource = new CancellationTokenSource();
             idMap = new InfiniteArray<IdPair>(0, new InfiniteArrayOptions
             {
@@ -91,10 +91,10 @@ namespace FastQueue.Server.Core
             {
                 try
                 {
-                    var persistedOffset = topic.PersistedOffset;
-                    if (persistedOffset > lastAckedOffset)
+                    var persistedMessageId = topic.PersistedMessageId;
+                    if (persistedMessageId > lastAckedMessageId)
                     {
-                        long idToAck = FindSequenceNumberToAck(persistedOffset);
+                        long idToAck = FindSequenceNumberToAck(persistedMessageId);
                         if (idToAck >= 0)
                         {
                             await RunAckHandler(new PublisherAck(idToAck), cancellationToken);

@@ -16,10 +16,10 @@ namespace FastQueue.Server.Core
         private InfiniteArray<Message> data;
         private HashSet<TopicWriter> writers;
         private Dictionary<string, Subscription> subscriptions;
-        private long offset;
+        private long lastMessageId;
         private readonly string name;
         private readonly IPersistentStorage persistentStorage;
-        private long persistedOffset;
+        private long persistedMessageId;
         private int persistenceIntervalMilliseconds;
         private object dataSync = new object();
         private object writersSync = new object();
@@ -28,21 +28,21 @@ namespace FastQueue.Server.Core
         private DataSnapshot currentData;
         private long lastFreeToId;
 
-        internal long PersistedOffset => persistedOffset;
+        internal long PersistedMessageId => persistedMessageId;
         internal DataSnapshot CurrentData => currentData;
 
-        internal Topic(long initialOffset, string name, IPersistentStorage persistentStorage, TopicOptions topicOptions)
+        internal Topic(long initialLastMessageId, string name, IPersistentStorage persistentStorage, TopicOptions topicOptions)
         {
-            offset = initialOffset;
-            persistedOffset = initialOffset;
+            lastMessageId = initialLastMessageId;
+            persistedMessageId = initialLastMessageId;
             this.name = name;
             this.persistentStorage = persistentStorage;
             persistenceIntervalMilliseconds = topicOptions.PersistenceIntervalMilliseconds;
-            data = new InfiniteArray<Message>(initialOffset, topicOptions.DataArrayOptions);
+            data = new InfiniteArray<Message>(initialLastMessageId + 1, topicOptions.DataArrayOptions);
             writers = new HashSet<TopicWriter>();
             subscriptions = new Dictionary<string, Subscription>();
             cancellationTokenSource = new CancellationTokenSource();
-            lastFreeToId = initialOffset;
+            lastFreeToId = initialLastMessageId + 1;
         }
 
         internal TopicWriteResult Write(ReadOnlySpan<ReadOnlyMemory<byte>> messages)
@@ -51,14 +51,14 @@ namespace FastQueue.Server.Core
             {
                 var enqueuedTime = DateTime.UtcNow;
                 var newMessages = new Message[messages.Length];
-                for (int i = 0; i < newMessages.Length; i++)
+                for (int i = 1; i <= newMessages.Length; i++)
                 {
-                    newMessages[i] = new Message(offset + i, enqueuedTime, messages[i]);
+                    newMessages[i] = new Message(lastMessageId + i, enqueuedTime, messages[i]);
                 }
 
                 var ind = data.Add(newMessages);
                 persistentStorage.Write(newMessages.AsSpan());
-                offset += messages.Length;
+                lastMessageId += messages.Length;
                 return new TopicWriteResult(ind, enqueuedTime);
             }
         }
@@ -68,10 +68,9 @@ namespace FastQueue.Server.Core
             lock (dataSync)
             {
                 var enqueuedTime = DateTime.UtcNow;
-                var newMessage = new Message(offset, enqueuedTime, message);
+                var newMessage = new Message(++lastMessageId, enqueuedTime, message);
                 var ind = data.Add(newMessage);
                 persistentStorage.Write(newMessage);
-                offset++;
                 return new TopicWriteResult(ind, enqueuedTime);
             }
         }
@@ -87,12 +86,12 @@ namespace FastQueue.Server.Core
             cancellationTokenSource.Cancel();
         }
 
-        internal void FreeTo(long offset)
+        internal void FreeTo(long firstValidMessageId)
         {
             lock (dataSync)
             {
-                data.FreeTo(offset);
-                persistentStorage.FreeTo(offset);
+                data.FreeTo(firstValidMessageId);
+                persistentStorage.FreeTo(firstValidMessageId);
             }
         }
 
@@ -168,7 +167,7 @@ namespace FastQueue.Server.Core
 
                     lock (dataSync)
                     {
-                        if (persistedOffset != offset)
+                        if (persistedMessageId != lastMessageId)
                         {
                             try
                             {
@@ -179,19 +178,13 @@ namespace FastQueue.Server.Core
                                 continue;
                             }
 
-                            persistedOffset = offset;
+                            persistedMessageId = lastMessageId;
 
                             currentData = new DataSnapshot()
                             {
                                 StartMessageId = data.GetFirstItemIndex(),
                                 Data = data.GetDataBlocks()
                             };
-
-                            // :::
-                            if (currentData.Data.Length > 0 && currentData.StartMessageId != currentData.Data[0].Span[0].ID)
-                            {
-
-                            }
                         }
                     }
                 }
@@ -222,12 +215,12 @@ namespace FastQueue.Server.Core
                         continue;
                     }
 
-                    var minCompletedId = subscriptions.Values.Min(x => x.CompletedMessageId);
+                    var firstNonCompletedId = subscriptions.Values.Min(x => x.CompletedMessageId) + 1;
 
-                    if (lastFreeToId < minCompletedId)
+                    if (lastFreeToId < firstNonCompletedId)
                     {
-                        FreeTo(minCompletedId);
-                        lastFreeToId = minCompletedId;
+                        FreeTo(firstNonCompletedId);
+                        lastFreeToId = firstNonCompletedId;
                     }
                 }
             }

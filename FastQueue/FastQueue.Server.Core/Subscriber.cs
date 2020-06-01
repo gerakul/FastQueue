@@ -44,8 +44,8 @@ namespace FastQueue.Server.Core
             {
                 try
                 {
-                    var persistedOffset = topic.PersistedOffset;
-                    if (persistedOffset > sentMessageId)
+                    var persistedMessageId = topic.PersistedMessageId;
+                    if (persistedMessageId > sentMessageId)
                     {
                         var dataSnapshot = topic.CurrentData;
                         await Push(dataSnapshot.Data, dataSnapshot.StartMessageId, cancellationToken);

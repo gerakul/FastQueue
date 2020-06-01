@@ -21,6 +21,7 @@ namespace FastQueue.Server.Core
         {
             this.name = name;
             this.topic = topic;
+            completedMessageId = -1;
         }
 
         internal void Complete(long messageId)

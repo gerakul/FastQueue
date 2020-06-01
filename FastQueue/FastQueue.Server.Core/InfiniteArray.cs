@@ -108,7 +108,7 @@ namespace FastQueue.Server.Core
         {
             if (index < 0)
             {
-                throw new IndexOutOfRangeException($"Index must be greater then 0. Index: {index}");
+                throw new IndexOutOfRangeException($"Index must be greater or equal 0. Index: {index}");
             }
 
             var blockInd = GetBlockIndex(index);

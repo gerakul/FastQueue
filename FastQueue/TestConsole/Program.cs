@@ -33,7 +33,7 @@ namespace TestConsole
 
             storage.Restore();
 
-            var topic = new Topic(0, "test", storage, new TopicOptions
+            var topic = new Topic(-1, "test", storage, new TopicOptions
             {
                 PersistenceIntervalMilliseconds = 100,
                 DataArrayOptions = new InfiniteArrayOptions
@@ -47,11 +47,26 @@ namespace TestConsole
             topic.Start();
 
             int receivedCount = 0;
+            long prevId = -1;
             topic.CreateSubscription("sub1");
-            var sub = topic.Subscribe("sub1", async (ms, ct) =>
+            Subscriber sub = null;
+            sub = topic.Subscribe("sub1", async (ms, ct) =>
             {
                 var cnt = Interlocked.Add(ref receivedCount, ms.Length);
                 Console.WriteLine($"Received {cnt}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+
+                var arr = ms.ToArray();
+                for (int i = 0; i < ms.Length; i++)
+                {
+                    if (arr[i].ID - 1 != prevId)
+                    {
+                        Console.WriteLine($"Missing {prevId} - {arr[i].ID}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+                    }
+
+                    prevId = arr[i].ID;
+                }
+
+                sub.Complete(arr[^1].ID);
 
                 await Task.CompletedTask;
             });
@@ -62,7 +77,7 @@ namespace TestConsole
                 await Task.CompletedTask;
             });
 
-            long seqNum = 1;
+            long seqNum = 0;
             for (int i = 0; i < 10; i++)
             {
                 writer.Write(new WriteRequest(seqNum++, new byte[] { 1, 2, 3, (byte)i }));
@@ -98,9 +113,10 @@ namespace TestConsole
                     start = 0;
                 }
 
-                seqNum += length;
                 //writer.Write(new WriteManyRequest(seqNum, messages.AsMemory(start, length)));
                 writer.Write(new WriteRequest(seqNum, messages[start]));
+
+                seqNum += length;
 
                 start += length;
             }
@@ -112,7 +128,7 @@ namespace TestConsole
 
         static async Task TopicPerformance()
         {
-            var topic = new Topic(0, "test", null, new TopicOptions
+            var topic = new Topic(-1, "test", null, new TopicOptions
             {
                 DataArrayOptions = new InfiniteArrayOptions
                 {

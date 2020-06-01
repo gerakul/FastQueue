@@ -10,7 +10,7 @@ namespace FastQueue.Server.Core
     {
         private class FileDescriptor
         {
-            public long StartOffset;
+            public long StartMessageId;
             public string Name;
             public FileDescriptor Next;
         }
@@ -23,7 +23,7 @@ namespace FastQueue.Server.Core
         private FileDescriptor firstFile;
         private FileDescriptor currentFile;
         private long currentLength;
-        private long secondFileStartOffset;
+        private long secondFileStartMessageId;
 
         public FilePersistentStorage(FilePersistentStorageOptions options)
         {
@@ -36,7 +36,7 @@ namespace FastQueue.Server.Core
         {
             // ::: restoring state from drive will be here
             firstFile = currentFile = StartNewFile(0L);
-            secondFileStartOffset = long.MaxValue;
+            secondFileStartMessageId = long.MaxValue;
         }
 
         public void Write(ReadOnlySpan<Message> messages)
@@ -55,9 +55,9 @@ namespace FastQueue.Server.Core
             WriteMessage(message);
         }
 
-        public void FreeTo(long offset)
+        public void FreeTo(long firstValidMessageId)
         {
-            if (secondFileStartOffset > offset)
+            if (secondFileStartMessageId > firstValidMessageId)
             {
                 return;
             }
@@ -66,10 +66,10 @@ namespace FastQueue.Server.Core
             var next = firstFile.Next;
             while (next != null)
             {
-                if (next.StartOffset >= offset)
+                if (next.StartMessageId > firstValidMessageId)
                 {
                     firstFile = file;
-                    secondFileStartOffset = file.Next?.StartOffset ?? long.MaxValue;
+                    secondFileStartMessageId = file.Next?.StartMessageId ?? long.MaxValue;
                     return;
                 }
 
@@ -80,7 +80,7 @@ namespace FastQueue.Server.Core
             }
 
             firstFile = file;
-            secondFileStartOffset = file.Next?.StartOffset ?? long.MaxValue;
+            secondFileStartMessageId = file.Next?.StartMessageId ?? long.MaxValue;
         }
 
         public void Flush()
@@ -118,25 +118,25 @@ namespace FastQueue.Server.Core
 
             currentFile.Next = StartNewFile(idToWrite);
             currentFile = currentFile.Next;
-            secondFileStartOffset = firstFile.Next?.StartOffset ?? long.MaxValue;
+            secondFileStartMessageId = firstFile.Next?.StartMessageId ?? long.MaxValue;
         }
 
-        private FileDescriptor StartNewFile(long startOffset)
+        private FileDescriptor StartNewFile(long startMessageId)
         {
-            var name = GetFileName(startOffset);
+            var name = GetFileName(startMessageId);
             fileStream = File.OpenWrite(name);
             writer = new BinaryWriter(fileStream, Encoding.UTF8, true);
             currentLength = 0;
             return new FileDescriptor
             {
                 Name = name,
-                StartOffset = startOffset
+                StartMessageId = startMessageId
             };
         }
 
-        private string GetFileName(long startOffset)
+        private string GetFileName(long startMessageId)
         {
-            return Path.Combine(directoryPath, $"{namePrefix}_{startOffset}.bin");
+            return Path.Combine(directoryPath, $"{namePrefix}_{startMessageId}.bin");
         }
     }
 

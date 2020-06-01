@@ -9,7 +9,7 @@ namespace FastQueue.Server.Core.Abstractions
     {
         void Write(ReadOnlySpan<Message> messages);
         void Write(Message message);
-        void FreeTo(long offset);
+        void FreeTo(long firstValidMessageId);
         void Flush();
     }
 }
