@@ -10,39 +10,17 @@ namespace FastQueue.Server.Core
     {
         private long completedMessageId;
         private string name;
+        private Topic topic;
         private Subscriber subscriber;
         private int running;
         private object sync = new object();
 
-        public Subscription(string name)
+        internal Topic Topic => topic;
+
+        public Subscription(string name, Topic topic)
         {
             this.name = name;
-        }
-
-        internal async Task Push(ReadOnlyMemory<Message>[] data, long startMessageId)
-        {
-            try
-            {
-                if (Interlocked.CompareExchange(ref running, 1, 0) == 1)
-                {
-                    return;
-                }
-
-                if (subscriber == null)
-                {
-                    return;
-                }
-
-                await subscriber.Push(data, startMessageId);
-            }
-            catch
-            {
-                DeleteSubscriber();
-            }
-            finally
-            {
-                Interlocked.Exchange(ref running, 0);
-            }
+            this.topic = topic;
         }
 
         internal void Complete(long messageId)
@@ -56,7 +34,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public Subscriber CreateSubscriber(Func<ReadOnlyMemory<Message>, CancellationToken, Task> push)
+        internal Subscriber CreateSubscriber(Func<ReadOnlyMemory<Message>, CancellationToken, Task> push)
         {
             lock (sync)
             {
@@ -66,6 +44,7 @@ namespace FastQueue.Server.Core
                 }
 
                 subscriber = new Subscriber(this, push, completedMessageId);
+                subscriber.StartPushLoop();
                 return subscriber;
             }
         }
@@ -79,6 +58,7 @@ namespace FastQueue.Server.Core
                     return;
                 }
 
+                subscriber.StartPushLoop();
                 subscriber = null;
             }
         }

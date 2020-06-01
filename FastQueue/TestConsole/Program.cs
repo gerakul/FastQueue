@@ -46,7 +46,7 @@ namespace TestConsole
 
             Task.Factory.StartNew(() => topic.PersistenceLoop(), TaskCreationOptions.LongRunning);
 
-            var writer = topic.CreateWriter(async ack =>
+            var writer = topic.CreateWriter(async (ack, ct) =>
             {
                 Console.WriteLine($"Confirmed {ack.SequenceNumber}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
                 topic.FreeTo(Math.Max(ack.SequenceNumber - 500, 0));

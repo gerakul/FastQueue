@@ -24,8 +24,10 @@ namespace FastQueue.Server.Core
         private object dataSync = new object();
         private object writersSync = new object();
         private CancellationTokenSource cancellationTokenSource;
+        private DataSnapshot currentData;
 
         internal long PersistedOffset => persistedOffset;
+        internal DataSnapshot CurrentData => currentData;
 
         internal Topic(long initialOffset, string name, IPersistentStorage persistentStorage, TopicOptions topicOptions)
         {
@@ -80,7 +82,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal TopicWriter CreateWriter(Func<PublisherAck, Task> ackHandler)
+        internal TopicWriter CreateWriter(Func<PublisherAck, CancellationToken, Task> ackHandler)
         {
             lock (writersSync)
             {
@@ -102,7 +104,7 @@ namespace FastQueue.Server.Core
 
         internal void CreateSubscription(string subscriptionName)
         {
-            subscriptions.AddOrUpdate(subscriptionName, subName => new Subscription(subscriptionName),
+            subscriptions.AddOrUpdate(subscriptionName, subName => new Subscription(subscriptionName, this),
                 (subName, y) => throw new SubscriptionManagementException($"Subscription {subName} already exists in the topic {name}"));
         }
 
@@ -116,6 +118,12 @@ namespace FastQueue.Server.Core
                     {
                         persistentStorage.Flush();
                         persistedOffset = offset;
+
+                        currentData = new DataSnapshot()
+                        {
+                            StartMessageId = data.GetFirstItemIndex(),
+                            Data = data.GetDataBlocks()
+                        };
                     }
                 }
 

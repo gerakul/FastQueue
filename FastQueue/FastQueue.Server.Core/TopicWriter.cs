@@ -26,14 +26,14 @@ namespace FastQueue.Server.Core
         }
 
         private Topic topic;
-        private Func<PublisherAck, Task> ackHandler;
+        private Func<PublisherAck, CancellationToken, Task> ackHandler;
         private InfiniteArray<IdPair> idMap;
         private long lastAckedOffset;
         private object sync = new object();
         private bool disposed = false;
         private CancellationTokenSource cancellationTokenSource;
 
-        internal TopicWriter(Topic topic, Func<PublisherAck, Task> ackHandler)
+        internal TopicWriter(Topic topic, Func<PublisherAck, CancellationToken, Task> ackHandler)
         {
             this.topic = topic;
             this.ackHandler = ackHandler;
@@ -89,18 +89,19 @@ namespace FastQueue.Server.Core
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var persistedOffset = topic.PersistedOffset;
-                if (persistedOffset > lastAckedOffset)
-                {
-                    long idToAck = FindSequenceNumberToAck(persistedOffset);
-                    if (idToAck >= 0)
-                    {
-                        await RunAckHandler(new PublisherAck(idToAck));
-                    }
-                }
 
                 try
                 {
+                    var persistedOffset = topic.PersistedOffset;
+                    if (persistedOffset > lastAckedOffset)
+                    {
+                        long idToAck = FindSequenceNumberToAck(persistedOffset);
+                        if (idToAck >= 0)
+                        {
+                            await RunAckHandler(new PublisherAck(idToAck), cancellationToken);
+                        }
+                    }
+
                     await Task.Delay(ConfirmationIntervalMilliseconds, cancellationToken);
                 }
                 catch (TaskCanceledException)
@@ -143,11 +144,11 @@ namespace FastQueue.Server.Core
             return -1;
         }
 
-        private async Task RunAckHandler(PublisherAck ack)
+        private async Task RunAckHandler(PublisherAck ack, CancellationToken cancellationToken)
         {
             try
             {
-                await ackHandler(ack).ConfigureAwait(false);
+                await ackHandler(ack, cancellationToken).ConfigureAwait(false);
             }
             catch
             {

@@ -8,7 +8,10 @@ namespace FastQueue.Server.Core
 {
     public class Subscriber : IDisposable
     {
+        private const int PushIntervalMilliseconds = 50;
+
         private readonly Subscription subscription;
+        private readonly Topic topic;
         private readonly Func<ReadOnlyMemory<Message>, CancellationToken, Task> pushHandler;
 
         private long sentMessageId;
@@ -19,16 +22,48 @@ namespace FastQueue.Server.Core
         internal Subscriber(Subscription subscription, Func<ReadOnlyMemory<Message>, CancellationToken, Task> pushHandler, long completedMessageId)
         {
             this.subscription = subscription;
+            this.topic = subscription.Topic;
             this.pushHandler = pushHandler;
             sentMessageId = completedMessageId;
             cancellationTokenSource = new CancellationTokenSource();
         }
 
-        internal async Task Push(ReadOnlyMemory<Message>[] data, long startMessageId)
+        internal void StartPushLoop()
+        {
+            Task.Factory.StartNew(async () => await PushLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+        }
+
+        internal void StopPushLoop()
+        {
+            cancellationTokenSource.Cancel();
+        }
+
+        private async Task PushLoop(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    var persistedOffset = topic.PersistedOffset;
+                    if (persistedOffset > sentMessageId)
+                    {
+                        var dataSnapshot = topic.CurrentData;
+                        await Push(dataSnapshot.Data, dataSnapshot.StartMessageId, cancellationToken);
+                    }
+
+                    await Task.Delay(PushIntervalMilliseconds, cancellationToken);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+            }
+        }
+
+        private async Task Push(ReadOnlyMemory<Message>[] data, long startMessageId, CancellationToken cancellationToken)
         {
             try
             {
-                var cancellationToken = cancellationTokenSource.Token;
                 int blockInd = 0;
                 long blockStartMessageId = startMessageId;
                 bool dataSent = false;
@@ -103,7 +138,6 @@ namespace FastQueue.Server.Core
                     return;
                 }
 
-                cancellationTokenSource.Cancel();
                 subscription.DeleteSubscriber();
                 disposed = true;
             }
