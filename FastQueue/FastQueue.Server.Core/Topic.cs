@@ -24,7 +24,7 @@ namespace FastQueue.Server.Core
         private object dataSync = new object();
         private object writersSync = new object();
 
-        public Topic(long initialOffset, string name, IPersistentStorage persistentStorage, TopicOptions topicOptions)
+        internal Topic(long initialOffset, string name, IPersistentStorage persistentStorage, TopicOptions topicOptions)
         {
             offset = initialOffset;
             persistedOffset = initialOffset;
@@ -36,7 +36,7 @@ namespace FastQueue.Server.Core
             subscriptions = new ConcurrentDictionary<string, Subscription>();
         }
 
-        public TopicWriteResult Write(ReadOnlySpan<ReadOnlyMemory<byte>> messages)
+        internal TopicWriteResult Write(ReadOnlySpan<ReadOnlyMemory<byte>> messages)
         {
             lock (dataSync)
             {
@@ -67,7 +67,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public void FreeTo(long offset)
+        internal void FreeTo(long offset)
         {
             lock (dataSync)
             {
@@ -76,7 +76,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public TopicWriter CreateWriter(Func<PublisherAck, Task> ackHandler)
+        internal TopicWriter CreateWriter(Func<PublisherAck, Task> ackHandler)
         {
             lock (writersSync)
             {
@@ -84,12 +84,6 @@ namespace FastQueue.Server.Core
                 writers.Add(writer);
                 return writer;
             }
-        }
-
-        public void CreateSubscription(string subscriptionName)
-        {
-            subscriptions.AddOrUpdate(subscriptionName, subName => new Subscription(subscriptionName),
-                (subName, y) => throw new SubscriptionManagementException($"Subscription {subName} already exists in the topic {name}"));
         }
 
         internal void DeleteWriter(TopicWriter writer)
@@ -100,31 +94,37 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public async Task ConfirmationLoop(CancellationToken cancellationToken)
+        internal void CreateSubscription(string subscriptionName)
+        {
+            subscriptions.AddOrUpdate(subscriptionName, subName => new Subscription(subscriptionName),
+                (subName, y) => throw new SubscriptionManagementException($"Subscription {subName} already exists in the topic {name}"));
+        }
+
+        internal async Task ConfirmationLoop(CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                bool offsetChanged;
+                long newPersistedOffset = 0;
                 lock (dataSync)
                 {
-                    offsetChanged = persistedOffset != offset;
-                    if (offsetChanged)
+                    if (persistedOffset != offset)
                     {
                         persistentStorage.Flush();
                         persistedOffset = offset;
+                        newPersistedOffset = persistedOffset;
                     }
                 }
 
-                if (offsetChanged)
+                if (newPersistedOffset > 0)
                 {
-                    TaskHelper.FireAndForget(FireAcks);
+                    TaskHelper.FireAndForget(() => FireAcks(newPersistedOffset));
                 }
 
                 await Task.Delay(confirmationIntervalMilliseconds);
             }
         }
 
-        private void FireAcks()
+        private void FireAcks(long newPersistedOffset)
         {
             TopicWriter[] writersArr;
             int len;
@@ -144,8 +144,8 @@ namespace FastQueue.Server.Core
             {
                 for (int i = 0; i < len; i++)
                 {
-                    // sending most recent persistedOffset
-                    writersArr[i].SendAck(persistedOffset);
+                    var w = writersArr[i];
+                    TaskHelper.FireAndForget(() => w.SendAck(newPersistedOffset));
                 }
             }
             finally

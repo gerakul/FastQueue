@@ -68,12 +68,12 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal void SendAck(long persistedId)
+        internal async Task SendAck(long persistedId)
         {
             long idToAck = FindSequenceNumberToAck(persistedId);
             if (idToAck >= 0)
             {
-                TaskHelper.FireAndForget(async () => await RunAckHandler(new PublisherAck(idToAck)));
+                await RunAckHandler(new PublisherAck(idToAck));
             }
         }
 
