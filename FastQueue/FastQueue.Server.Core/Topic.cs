@@ -20,9 +20,12 @@ namespace FastQueue.Server.Core
         private readonly string name;
         private readonly IPersistentStorage persistentStorage;
         private long persistedOffset;
-        private int confirmationIntervalMilliseconds;
+        private int persistenceIntervalMilliseconds;
         private object dataSync = new object();
         private object writersSync = new object();
+        private CancellationTokenSource cancellationTokenSource;
+
+        internal long PersistedOffset => persistedOffset;
 
         internal Topic(long initialOffset, string name, IPersistentStorage persistentStorage, TopicOptions topicOptions)
         {
@@ -30,10 +33,11 @@ namespace FastQueue.Server.Core
             persistedOffset = initialOffset;
             this.name = name;
             this.persistentStorage = persistentStorage;
-            confirmationIntervalMilliseconds = topicOptions.ConfirmationIntervalMilliseconds;
+            persistenceIntervalMilliseconds = topicOptions.PersistenceIntervalMilliseconds;
             data = new InfiniteArray<Message>(initialOffset, topicOptions.DataArrayOptions);
             writers = new HashSet<TopicWriter>();
             subscriptions = new ConcurrentDictionary<string, Subscription>();
+            cancellationTokenSource = new CancellationTokenSource();
         }
 
         internal TopicWriteResult Write(ReadOnlySpan<ReadOnlyMemory<byte>> messages)
@@ -54,7 +58,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public TopicWriteResult Write(ReadOnlyMemory<byte> message)
+        internal TopicWriteResult Write(ReadOnlyMemory<byte> message)
         {
             lock (dataSync)
             {
@@ -82,6 +86,7 @@ namespace FastQueue.Server.Core
             {
                 var writer = new TopicWriter(this, ackHandler);
                 writers.Add(writer);
+                writer.StartConfirmationLoop();
                 return writer;
             }
         }
@@ -90,6 +95,7 @@ namespace FastQueue.Server.Core
         {
             lock (writersSync)
             {
+                writer.StopConfirmationLoop();
                 writers.Remove(writer);
             }
         }
@@ -100,64 +106,27 @@ namespace FastQueue.Server.Core
                 (subName, y) => throw new SubscriptionManagementException($"Subscription {subName} already exists in the topic {name}"));
         }
 
-        internal async Task ConfirmationLoop(CancellationToken cancellationToken)
+        internal async Task PersistenceLoop()
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (!cancellationTokenSource.IsCancellationRequested)
             {
-                long newPersistedOffset = 0;
                 lock (dataSync)
                 {
                     if (persistedOffset != offset)
                     {
                         persistentStorage.Flush();
                         persistedOffset = offset;
-                        newPersistedOffset = persistedOffset;
                     }
                 }
 
-                if (newPersistedOffset > 0)
-                {
-                    TaskHelper.FireAndForget(() => FireAcks(newPersistedOffset));
-                }
-
-                await Task.Delay(confirmationIntervalMilliseconds);
-            }
-        }
-
-        private void FireAcks(long newPersistedOffset)
-        {
-            TopicWriter[] writersArr;
-            int len;
-            lock (writersSync)
-            {
-                len = writers.Count;
-                if (len == 0)
-                {
-                    return;
-                }
-
-                writersArr = ArrayPool<TopicWriter>.Shared.Rent(len);
-                writers.CopyTo(writersArr, 0, len);
-            }
-
-            try
-            {
-                for (int i = 0; i < len; i++)
-                {
-                    var w = writersArr[i];
-                    TaskHelper.FireAndForget(() => w.SendAck(newPersistedOffset));
-                }
-            }
-            finally
-            {
-                ArrayPool<TopicWriter>.Shared.Return(writersArr);
+                await Task.Delay(persistenceIntervalMilliseconds);
             }
         }
     }
 
     public class TopicOptions
     {
-        public int ConfirmationIntervalMilliseconds { get; set; } = 50;
+        public int PersistenceIntervalMilliseconds { get; set; } = 50;
         public InfiniteArrayOptions DataArrayOptions { get; set; } = new InfiniteArrayOptions();
 
         public TopicOptions()
@@ -166,7 +135,7 @@ namespace FastQueue.Server.Core
 
         public TopicOptions(TopicOptions options)
         {
-            ConfirmationIntervalMilliseconds = options.ConfirmationIntervalMilliseconds;
+            PersistenceIntervalMilliseconds = options.PersistenceIntervalMilliseconds;
             DataArrayOptions = new InfiniteArrayOptions(options.DataArrayOptions);
         }
     }

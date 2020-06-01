@@ -35,7 +35,7 @@ namespace TestConsole
 
             var topic = new Topic(0, "test", storage, new TopicOptions
             {
-                ConfirmationIntervalMilliseconds = 100,
+                PersistenceIntervalMilliseconds = 100,
                 DataArrayOptions = new InfiniteArrayOptions
                 {
                     BlockLength = 100000,
@@ -44,7 +44,7 @@ namespace TestConsole
                 }
             });
 
-            Task.Factory.StartNew(() => topic.ConfirmationLoop(default), TaskCreationOptions.LongRunning);
+            Task.Factory.StartNew(() => topic.PersistenceLoop(), TaskCreationOptions.LongRunning);
 
             var writer = topic.CreateWriter(async ack =>
             {
@@ -79,10 +79,10 @@ namespace TestConsole
             }
 
             start = 0;
-            length = 100;
+            length = 1;
             Console.WriteLine($"Start sending: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
 
-            for (long i = 0; i < 10_000_000; i += length)
+            for (long i = 0; i < 1_000_000; i += length)
             {
                 if (start + length > messages.Length)
                 {
@@ -90,7 +90,8 @@ namespace TestConsole
                 }
 
                 seqNum += length;
-                writer.Write(new WriteManyRequest(seqNum, messages.AsMemory(start, length)));
+                //writer.Write(new WriteManyRequest(seqNum, messages.AsMemory(start, length)));
+                writer.Write(new WriteRequest(seqNum, messages[start]));
 
                 start += length;
             }

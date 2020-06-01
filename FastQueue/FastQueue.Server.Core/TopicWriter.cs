@@ -4,12 +4,15 @@ using FastQueue.Server.Core.Model;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
-    public class TopicWriter : IDisposable
+    internal class TopicWriter : IDisposable
     {
+        private const int ConfirmationIntervalMilliseconds = 50;
+
         private readonly struct IdPair
         {
             public readonly long WriterID;
@@ -25,13 +28,17 @@ namespace FastQueue.Server.Core
         private Topic topic;
         private Func<PublisherAck, Task> ackHandler;
         private InfiniteArray<IdPair> idMap;
+        private long lastAckedOffset;
         private object sync = new object();
         private bool disposed = false;
+        private CancellationTokenSource cancellationTokenSource;
 
         internal TopicWriter(Topic topic, Func<PublisherAck, Task> ackHandler)
         {
             this.topic = topic;
             this.ackHandler = ackHandler;
+            lastAckedOffset = 0;
+            cancellationTokenSource = new CancellationTokenSource();
             idMap = new InfiniteArray<IdPair>(0, new InfiniteArrayOptions
             {
                 MinimumFreeBlocks = 4,
@@ -40,7 +47,7 @@ namespace FastQueue.Server.Core
             });
         }
 
-        public void Write(WriteManyRequest request)
+        internal void Write(WriteManyRequest request)
         {
             lock (sync)
             {
@@ -54,7 +61,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public void Write(WriteRequest request)
+        internal void Write(WriteRequest request)
         {
             lock (sync)
             {
@@ -68,12 +75,38 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal async Task SendAck(long persistedId)
+        internal void StartConfirmationLoop()
         {
-            long idToAck = FindSequenceNumberToAck(persistedId);
-            if (idToAck >= 0)
+            Task.Factory.StartNew(async () => await ConfirmationLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+        }
+
+        internal void StopConfirmationLoop()
+        {
+            cancellationTokenSource.Cancel();
+        }
+
+        private async Task ConfirmationLoop(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
             {
-                await RunAckHandler(new PublisherAck(idToAck));
+                var persistedOffset = topic.PersistedOffset;
+                if (persistedOffset > lastAckedOffset)
+                {
+                    long idToAck = FindSequenceNumberToAck(persistedOffset);
+                    if (idToAck >= 0)
+                    {
+                        await RunAckHandler(new PublisherAck(idToAck));
+                    }
+                }
+
+                try
+                {
+                    await Task.Delay(ConfirmationIntervalMilliseconds, cancellationToken);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
             }
         }
 
