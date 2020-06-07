@@ -69,6 +69,10 @@ namespace TestConsole
                 sub.Complete(arr[^1].ID);
 
                 await Task.CompletedTask;
+            }, new SubscriberOptions
+            {
+                MaxMessagesInBatch = 10000,
+                PushIntervalMilliseconds = 50
             });
 
             var writer = topic.CreateWriter(async (ack, ct) =>

@@ -143,7 +143,8 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal Subscriber Subscribe(string subscriptionName, Func<ReadOnlyMemory<Message>, CancellationToken, Task> push)
+        internal Subscriber Subscribe(string subscriptionName, Func<ReadOnlyMemory<Message>, CancellationToken, Task> push, 
+            SubscriberOptions subscriberOptions = null)
         {
             lock (subscriptionsSync)
             {
@@ -153,7 +154,7 @@ namespace FastQueue.Server.Core
                     throw new SubscriptionManagementException($"Subscription {subscriptionName} doesn't exist in the topic {name}");
                 }
 
-                return sub.CreateSubscriber(push);
+                return sub.CreateSubscriber(push, subscriberOptions ?? new SubscriberOptions());
             }
         }
 

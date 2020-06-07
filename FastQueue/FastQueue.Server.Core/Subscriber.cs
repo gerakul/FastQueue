@@ -8,23 +8,26 @@ namespace FastQueue.Server.Core
 {
     public class Subscriber : IDisposable
     {
-        private const int PushIntervalMilliseconds = 50;
-
         private readonly Subscription subscription;
         private readonly Topic topic;
         private readonly Func<ReadOnlyMemory<Message>, CancellationToken, Task> pushHandler;
+        private readonly int pushIntervalMilliseconds;
+        private readonly int maxMessagesInBatch;
 
         private long sentMessageId;
         private CancellationTokenSource cancellationTokenSource;
         private object sync = new object();
         private bool disposed = false;
 
-        internal Subscriber(Subscription subscription, Func<ReadOnlyMemory<Message>, CancellationToken, Task> pushHandler, long completedMessageId)
+        internal Subscriber(Subscription subscription, Func<ReadOnlyMemory<Message>, CancellationToken, Task> pushHandler, long completedMessageId,
+            SubscriberOptions subscriberOptions)
         {
             this.subscription = subscription;
             this.topic = subscription.Topic;
             this.pushHandler = pushHandler;
             sentMessageId = completedMessageId;
+            maxMessagesInBatch = subscriberOptions.MaxMessagesInBatch;
+            pushIntervalMilliseconds = subscriberOptions.PushIntervalMilliseconds;
             cancellationTokenSource = new CancellationTokenSource();
         }
 
@@ -51,7 +54,7 @@ namespace FastQueue.Server.Core
                         await Push(dataSnapshot.Data, dataSnapshot.StartMessageId, cancellationToken);
                     }
 
-                    await Task.Delay(PushIntervalMilliseconds, cancellationToken);
+                    await Task.Delay(pushIntervalMilliseconds, cancellationToken);
                 }
                 catch (TaskCanceledException)
                 {
@@ -75,7 +78,7 @@ namespace FastQueue.Server.Core
                     if (sentMessageId < blockStartMessageId + blockLen - 1)
                     {
                         var memory = data[blockInd].Slice(checked((int)(sentMessageId - blockStartMessageId)) + 1);
-                        await RunPushHandler(memory, cancellationToken);
+                        await SendBatches(memory, cancellationToken);
                         sentCount = memory.Length;
                         dataSent = true;
                         blockInd++;
@@ -88,7 +91,7 @@ namespace FastQueue.Server.Core
 
                 while (blockInd < data.Length && !cancellationToken.IsCancellationRequested)
                 {
-                    await RunPushHandler(data[blockInd], cancellationToken);
+                    await SendBatches(data[blockInd], cancellationToken);
                     sentCount += data[blockInd].Length;
                     blockInd++;
                 }
@@ -111,9 +114,21 @@ namespace FastQueue.Server.Core
             }
         }
 
-        private Task RunPushHandler(ReadOnlyMemory<Message> messages, CancellationToken cancellationToken)
+        private async Task SendBatches(ReadOnlyMemory<Message> messages, CancellationToken cancellationToken)
         {
-            return pushHandler(messages, cancellationToken);
+            int ind = 0;
+            int len = messages.Length - maxMessagesInBatch;
+
+            while (ind < len)
+            {
+                await pushHandler(messages.Slice(ind, maxMessagesInBatch), cancellationToken);
+                ind += maxMessagesInBatch;
+            }
+
+            if (ind < messages.Length)
+            {
+                await pushHandler(messages.Slice(ind, messages.Length - ind), cancellationToken);
+            }
         }
 
         public void Complete(long messageId)
@@ -141,6 +156,22 @@ namespace FastQueue.Server.Core
                 subscription.DeleteSubscriber();
                 disposed = true;
             }
+        }
+    }
+
+    public class SubscriberOptions
+    {
+        public int PushIntervalMilliseconds { get; set; } = 50;
+        public int MaxMessagesInBatch { get; set; } = 10000;
+
+        public SubscriberOptions()
+        {
+        }
+
+        public SubscriberOptions(SubscriberOptions options)
+        {
+            PushIntervalMilliseconds = options.PushIntervalMilliseconds;
+            MaxMessagesInBatch = options.MaxMessagesInBatch;
         }
     }
 }

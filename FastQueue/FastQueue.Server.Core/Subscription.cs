@@ -35,7 +35,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal Subscriber CreateSubscriber(Func<ReadOnlyMemory<Message>, CancellationToken, Task> push)
+        internal Subscriber CreateSubscriber(Func<ReadOnlyMemory<Message>, CancellationToken, Task> push, SubscriberOptions subscriberOptions)
         {
             lock (sync)
             {
@@ -44,7 +44,7 @@ namespace FastQueue.Server.Core
                     throw new SubscriptionManagementException($"Subscription {name} is already used");
                 }
 
-                subscriber = new Subscriber(this, push, completedMessageId);
+                subscriber = new Subscriber(this, push, completedMessageId, subscriberOptions);
                 subscriber.StartPushLoop();
                 return subscriber;
             }
