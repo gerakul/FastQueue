@@ -4,6 +4,7 @@ using FastQueue.Server.Core.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -19,6 +20,7 @@ namespace FastQueue.Server.Core
         private long lastMessageId;
         private readonly string name;
         private readonly IPersistentStorage persistentStorage;
+        private readonly InfiniteArrayOptions dataArrayOptions;
         private long persistedMessageId;
         private int persistenceIntervalMilliseconds;
         private object dataSync = new object();
@@ -31,18 +33,17 @@ namespace FastQueue.Server.Core
         internal long PersistedMessageId => persistedMessageId;
         internal DataSnapshot CurrentData => currentData;
 
-        internal Topic(long initialLastMessageId, string name, IPersistentStorage persistentStorage, TopicOptions topicOptions)
+        internal Topic(string name, IPersistentStorage persistentStorage, TopicOptions topicOptions)
         {
-            lastMessageId = initialLastMessageId;
-            persistedMessageId = initialLastMessageId;
             this.name = name;
             this.persistentStorage = persistentStorage;
             persistenceIntervalMilliseconds = topicOptions.PersistenceIntervalMilliseconds;
-            data = new InfiniteArray<Message>(initialLastMessageId + 1, topicOptions.DataArrayOptions);
+            dataArrayOptions = new InfiniteArrayOptions(topicOptions.DataArrayOptions);
             writers = new HashSet<TopicWriter>();
             subscriptions = new Dictionary<string, Subscription>();
             cancellationTokenSource = new CancellationTokenSource();
-            lastFreeToId = initialLastMessageId + 1;
+            // ::: move to Restore
+            lastFreeToId = 1;
         }
 
         internal TopicWriteResult Write(ReadOnlySpan<ReadOnlyMemory<byte>> messages)
@@ -86,6 +87,34 @@ namespace FastQueue.Server.Core
             cancellationTokenSource.Cancel();
         }
 
+        internal void Restore()
+        {
+            var restoreEnumerator = persistentStorage.Restore().GetEnumerator();
+
+            if (!restoreEnumerator.MoveNext())
+            {
+                persistedMessageId = lastMessageId = -1;
+                data = new InfiniteArray<Message>(0, dataArrayOptions);
+                return;
+            }
+
+            data = new InfiniteArray<Message>(restoreEnumerator.Current.ID, dataArrayOptions);
+            data.Add(restoreEnumerator.Current);
+
+            while (restoreEnumerator.MoveNext())
+            {
+                data.Add(restoreEnumerator.Current);
+            }
+
+            currentData = new DataSnapshot()
+            {
+                StartMessageId = data.GetFirstItemIndex(),
+                Data = data.GetDataBlocks()
+            };
+
+            persistedMessageId = lastMessageId = currentData.Data[^1].Span[^1].ID;
+        }
+
         internal void FreeTo(long firstValidMessageId)
         {
             lock (dataSync)
@@ -117,6 +146,11 @@ namespace FastQueue.Server.Core
 
         internal void CreateSubscription(string subscriptionName)
         {
+            CreateSubscription(subscriptionName, persistedMessageId + 1);
+        }
+
+        internal void CreateSubscription(string subscriptionName, long startReadingFromId)
+        {
             lock (subscriptionsSync)
             {
                 if (subscriptions.ContainsKey(subscriptionName))
@@ -124,7 +158,7 @@ namespace FastQueue.Server.Core
                     throw new SubscriptionManagementException($"Subscription {subscriptionName} already exists in the topic {name}");
                 }
 
-                subscriptions.Add(subscriptionName, new Subscription(subscriptionName, this));
+                subscriptions.Add(subscriptionName, new Subscription(subscriptionName, this, startReadingFromId - 1));
             }
         }
 

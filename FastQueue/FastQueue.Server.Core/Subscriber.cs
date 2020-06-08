@@ -51,7 +51,11 @@ namespace FastQueue.Server.Core
                     if (persistedMessageId > sentMessageId)
                     {
                         var dataSnapshot = topic.CurrentData;
-                        await Push(dataSnapshot.Data, dataSnapshot.StartMessageId, cancellationToken);
+
+                        if (dataSnapshot != null)
+                        {
+                            await Push(dataSnapshot.Data, dataSnapshot.StartMessageId, cancellationToken);
+                        }
                     }
 
                     await Task.Delay(pushIntervalMilliseconds, cancellationToken);

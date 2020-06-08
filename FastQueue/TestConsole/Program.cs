@@ -31,9 +31,7 @@ namespace TestConsole
                 NamePrefix = "Data"
             });
 
-            storage.Restore();
-
-            var topic = new Topic(-1, "test", storage, new TopicOptions
+            var topic = new Topic("test", storage, new TopicOptions
             {
                 PersistenceIntervalMilliseconds = 100,
                 DataArrayOptions = new InfiniteArrayOptions
@@ -44,10 +42,12 @@ namespace TestConsole
                 }
             });
 
+            topic.Restore();
+
             topic.Start();
 
             int receivedCount = 0;
-            long prevId = -1;
+            long prevId = topic.PersistedMessageId;
             topic.CreateSubscription("sub1");
             Subscriber sub = null;
             sub = topic.Subscribe("sub1", async (ms, ct) =>
@@ -132,7 +132,7 @@ namespace TestConsole
 
         static async Task TopicPerformance()
         {
-            var topic = new Topic(-1, "test", null, new TopicOptions
+            var topic = new Topic("test", null, new TopicOptions
             {
                 DataArrayOptions = new InfiniteArrayOptions
                 {

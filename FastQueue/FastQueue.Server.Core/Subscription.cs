@@ -17,11 +17,11 @@ namespace FastQueue.Server.Core
         internal Topic Topic => topic;
         internal long CompletedMessageId => completedMessageId;
 
-        public Subscription(string name, Topic topic)
+        public Subscription(string name, Topic topic, long completedMessageId)
         {
             this.name = name;
             this.topic = topic;
-            completedMessageId = -1;
+            this.completedMessageId = completedMessageId;
         }
 
         internal void Complete(long messageId)
