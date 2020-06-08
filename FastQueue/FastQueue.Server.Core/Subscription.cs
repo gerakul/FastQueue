@@ -59,7 +59,7 @@ namespace FastQueue.Server.Core
                     return;
                 }
 
-                subscriber.StartPushLoop();
+                subscriber.StopPushLoop();
                 subscriber = null;
             }
         }

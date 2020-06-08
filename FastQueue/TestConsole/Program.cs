@@ -53,7 +53,7 @@ namespace TestConsole
             sub = topic.Subscribe("sub1", async (ms, ct) =>
             {
                 var cnt = Interlocked.Add(ref receivedCount, ms.Length);
-                Console.WriteLine($"Received {cnt}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+                Console.WriteLine($"Received {cnt}. Last {ms.Span[^1].ID} {DateTimeOffset.UtcNow:mm:ss.fffffff}");
 
                 var arr = ms.ToArray();
                 for (int i = 0; i < ms.Length; i++)
