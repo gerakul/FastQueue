@@ -31,7 +31,12 @@ namespace TestConsole
                 NamePrefix = "Data"
             });
 
-            var topic = new Topic("test", storage, new TopicOptions
+            var subConfigStorage = new SubscriptionsConfigurationFileStorage(new SubscriptionsConfigurationStorageFileOptions
+            {
+                DirectoryPath = @"C:\temp\storage"
+            });
+
+            var topic = new Topic("test", storage, subConfigStorage, new TopicOptions
             {
                 PersistenceIntervalMilliseconds = 100,
                 DataArrayOptions = new InfiniteArrayOptions
@@ -48,7 +53,7 @@ namespace TestConsole
 
             int receivedCount = 0;
             long prevId = topic.PersistedMessageId;
-            topic.CreateSubscription("sub1");
+            //topic.CreateSubscription("sub1");
             Subscriber sub = null;
             sub = topic.Subscribe("sub1", async (ms, ct) =>
             {
@@ -128,63 +133,6 @@ namespace TestConsole
             Console.WriteLine($"Stop sending: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
 
             await Task.Delay(2000);
-        }
-
-        static async Task TopicPerformance()
-        {
-            var topic = new Topic("test", null, new TopicOptions
-            {
-                DataArrayOptions = new InfiniteArrayOptions
-                {
-                    BlockLength = 100000,
-                    DataListCapacity = 128,
-                    MinimumFreeBlocks = 4
-                }
-            });
-
-            byte[] buffer = new byte[1000000];
-            new Random(DateTimeOffset.UtcNow.Millisecond).NextBytes(buffer);
-
-            var messages = new ReadOnlyMemory<byte>[1000];
-
-            int start = 0;
-            int length = 100;
-            for (int i = 0; i < messages.Length; i++)
-            {
-                if (start + length > messages.Length)
-                {
-                    start = 0;
-                }
-
-                messages[i] = buffer.AsMemory(start, length);
-                start += length;
-            }
-
-            var sw = Stopwatch.StartNew();
-
-            start = 0;
-            length = 100;
-            for (long i = 0; i < 100_000_00; i += length)
-            {
-                if (start + length > messages.Length)
-                {
-                    start = 0;
-                }
-
-                topic.Write(messages.AsSpan(start, length));
-
-                start += length;
-
-
-                if (i % 1000 == 0 && i > 50)
-                {
-                    topic.FreeTo(i - 50);
-                }
-            }
-
-            sw.Stop();
-
-            Console.WriteLine($"{sw.ElapsedMilliseconds}");
         }
 
         static async Task InfiniteArrayTest()

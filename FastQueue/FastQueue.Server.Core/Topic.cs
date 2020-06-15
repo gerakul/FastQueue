@@ -20,6 +20,7 @@ namespace FastQueue.Server.Core
         private long lastMessageId;
         private readonly string name;
         private readonly IPersistentStorage persistentStorage;
+        private readonly ISubscriptionsConfigurationStorage subscriptionsConfigurationStorage;
         private readonly InfiniteArrayOptions dataArrayOptions;
         private long persistedMessageId;
         private int persistenceIntervalMilliseconds;
@@ -33,10 +34,12 @@ namespace FastQueue.Server.Core
         internal long PersistedMessageId => persistedMessageId;
         internal DataSnapshot CurrentData => currentData;
 
-        internal Topic(string name, IPersistentStorage persistentStorage, TopicOptions topicOptions)
+        internal Topic(string name, IPersistentStorage persistentStorage, ISubscriptionsConfigurationStorage subscriptionsConfigurationStorage,
+            TopicOptions topicOptions)
         {
             this.name = name;
             this.persistentStorage = persistentStorage;
+            this.subscriptionsConfigurationStorage = subscriptionsConfigurationStorage;
             persistenceIntervalMilliseconds = topicOptions.PersistenceIntervalMilliseconds;
             dataArrayOptions = new InfiniteArrayOptions(topicOptions.DataArrayOptions);
             writers = new HashSet<TopicWriter>();
@@ -113,6 +116,8 @@ namespace FastQueue.Server.Core
             };
 
             persistedMessageId = lastMessageId = currentData.Data[^1].Span[^1].ID;
+
+            RestoreSubscriptions();
         }
 
         internal void FreeTo(long firstValidMessageId)
@@ -158,7 +163,18 @@ namespace FastQueue.Server.Core
                     throw new SubscriptionManagementException($"Subscription {subscriptionName} already exists in the topic {name}");
                 }
 
-                subscriptions.Add(subscriptionName, new Subscription(subscriptionName, this, startReadingFromId - 1));
+                subscriptions.Add(subscriptionName, new Subscription(Guid.NewGuid(), subscriptionName, this, startReadingFromId - 1));
+
+                var newConfig = new SubscriptionsConfiguration
+                {
+                    Subscriptions = subscriptions.Values.Select(x => new SubscriptionConfiguration
+                    {
+                        Id = x.Id,
+                        Name = x.Name
+                    }).ToList()
+                };
+
+                subscriptionsConfigurationStorage.Update(newConfig);
             }
         }
 
@@ -189,6 +205,17 @@ namespace FastQueue.Server.Core
                 }
 
                 return sub.CreateSubscriber(push, subscriberOptions ?? new SubscriberOptions());
+            }
+        }
+
+        private void RestoreSubscriptions()
+        {
+            var config = subscriptionsConfigurationStorage.Read();
+
+            foreach (var item in config.Subscriptions)
+            {
+                // ::: use completedId instead of persistedMessageId
+                subscriptions.Add(item.Name, new Subscription(item.Id, item.Name, this, persistedMessageId));
             }
         }
 

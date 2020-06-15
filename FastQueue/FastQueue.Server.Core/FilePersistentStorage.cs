@@ -278,5 +278,4 @@ namespace FastQueue.Server.Core
             DirectoryPath = options.DirectoryPath;
         }
     }
-
 }

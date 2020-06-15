@@ -8,17 +8,21 @@ namespace FastQueue.Server.Core
 {
     internal class Subscription : IDisposable
     {
-        private long completedMessageId;
+        private Guid id;
         private string name;
         private Topic topic;
+        private long completedMessageId;
         private Subscriber subscriber;
         private object sync = new object();
 
+        internal Guid Id => id;
+        internal string Name => name;
         internal Topic Topic => topic;
         internal long CompletedMessageId => completedMessageId;
 
-        public Subscription(string name, Topic topic, long completedMessageId)
+        public Subscription(Guid id, string name, Topic topic, long completedMessageId)
         {
+            this.id = id;
             this.name = name;
             this.topic = topic;
             this.completedMessageId = completedMessageId;
