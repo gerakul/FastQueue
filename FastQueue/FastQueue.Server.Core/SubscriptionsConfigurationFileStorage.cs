@@ -19,7 +19,7 @@ namespace FastQueue.Server.Core
         private string configFileNew;
         private string mapFileNew;
 
-        internal SubscriptionsConfigurationFileStorage(SubscriptionsConfigurationStorageFileOptions options)
+        internal SubscriptionsConfigurationFileStorage(SubscriptionsConfigurationFileStorageOptions options)
         {
             directoryPath = options.DirectoryPath;
             configFile = Path.Combine(directoryPath, ConfigFileName + ".json");
@@ -30,6 +30,16 @@ namespace FastQueue.Server.Core
 
         public void Update(SubscriptionsConfiguration subscriptionsConfiguration)
         {
+            if (File.Exists(configFileNew))
+            {
+                File.Delete(configFileNew);
+            }
+
+            if (File.Exists(mapFileNew))
+            {
+                File.Delete(mapFileNew);
+            }
+
             CreateNewSubscriptionsConfigurationFile(subscriptionsConfiguration);
             CreateNewSubscriptionsMapFile(subscriptionsConfiguration);
 
@@ -119,15 +129,15 @@ namespace FastQueue.Server.Core
         }
     }
 
-    public class SubscriptionsConfigurationStorageFileOptions
+    public class SubscriptionsConfigurationFileStorageOptions
     {
         public string DirectoryPath { get; set; }
 
-        public SubscriptionsConfigurationStorageFileOptions()
+        public SubscriptionsConfigurationFileStorageOptions()
         {
         }
 
-        public SubscriptionsConfigurationStorageFileOptions(SubscriptionsConfigurationStorageFileOptions options)
+        public SubscriptionsConfigurationFileStorageOptions(SubscriptionsConfigurationFileStorageOptions options)
         {
             DirectoryPath = options.DirectoryPath;
         }

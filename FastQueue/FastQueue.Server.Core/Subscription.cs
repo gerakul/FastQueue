@@ -1,4 +1,5 @@
-﻿using FastQueue.Server.Core.Exceptions;
+﻿using FastQueue.Server.Core.Abstractions;
+using FastQueue.Server.Core.Exceptions;
 using FastQueue.Server.Core.Model;
 using System;
 using System.Threading;
@@ -12,6 +13,7 @@ namespace FastQueue.Server.Core
         private string name;
         private Topic topic;
         private long completedMessageId;
+        private readonly ISubscriptionPointersStorage subscriptionPointersStorage;
         private Subscriber subscriber;
         private object sync = new object();
 
@@ -20,12 +22,14 @@ namespace FastQueue.Server.Core
         internal Topic Topic => topic;
         internal long CompletedMessageId => completedMessageId;
 
-        public Subscription(Guid id, string name, Topic topic, long completedMessageId)
+        public Subscription(Guid id, string name, Topic topic, long completedMessageId,
+            ISubscriptionPointersStorage subscriptionPointersStorage)
         {
             this.id = id;
             this.name = name;
             this.topic = topic;
             this.completedMessageId = completedMessageId;
+            this.subscriptionPointersStorage = subscriptionPointersStorage;
         }
 
         internal void Complete(long messageId)
@@ -35,6 +39,7 @@ namespace FastQueue.Server.Core
                 if (messageId > completedMessageId)
                 {
                     completedMessageId = messageId;
+                    subscriptionPointersStorage.Write(id, completedMessageId);
                 }
             }
         }

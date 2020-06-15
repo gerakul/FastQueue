@@ -31,12 +31,19 @@ namespace TestConsole
                 NamePrefix = "Data"
             });
 
-            var subConfigStorage = new SubscriptionsConfigurationFileStorage(new SubscriptionsConfigurationStorageFileOptions
+            var subConfigStorage = new SubscriptionsConfigurationFileStorage(new SubscriptionsConfigurationFileStorageOptions
             {
                 DirectoryPath = @"C:\temp\storage"
             });
 
-            var topic = new Topic("test", storage, subConfigStorage, new TopicOptions
+            var subPointersStorage = new SubscriptionPointersFileStorage(new SubscriptionPointersFileStorageOptions
+            {
+                FileLengthThreshold = 10 * 1024 * 1024,
+                DirectoryPath = @"C:\temp\storage",
+                NamePrefix = "Pointers"
+            });
+
+            var topic = new Topic("test", storage, subConfigStorage, subPointersStorage, new TopicOptions
             {
                 PersistenceIntervalMilliseconds = 100,
                 DataArrayOptions = new InfiniteArrayOptions

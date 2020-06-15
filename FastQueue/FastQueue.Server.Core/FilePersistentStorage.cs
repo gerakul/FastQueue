@@ -82,7 +82,7 @@ namespace FastQueue.Server.Core
 
             secondFileStartMessageId = firstFile.Next == null ? long.MaxValue : firstFile.Next.StartMessageId;
             currentFile = files[^1];
-            fileStream = File.OpenWrite(currentFile.Name);
+            fileStream = File.Open(currentFile.Name, FileMode.Append, FileAccess.Write, FileShare.Write);
             writer = new BinaryWriter(fileStream, Encoding.UTF8, true);
             currentLength = fileStream.Length;
         }

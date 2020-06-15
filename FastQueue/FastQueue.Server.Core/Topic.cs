@@ -13,6 +13,7 @@ namespace FastQueue.Server.Core
     internal class Topic
     {
         private const int CleanupIntervalMilliseconds = 200;
+        private const int SubscriptionPointersFlushIntervalMilliseconds = 200;
 
         private InfiniteArray<Message> data;
         private HashSet<TopicWriter> writers;
@@ -21,6 +22,7 @@ namespace FastQueue.Server.Core
         private readonly string name;
         private readonly IPersistentStorage persistentStorage;
         private readonly ISubscriptionsConfigurationStorage subscriptionsConfigurationStorage;
+        private readonly ISubscriptionPointersStorage subscriptionPointersStorage;
         private readonly InfiniteArrayOptions dataArrayOptions;
         private long persistedMessageId;
         private int persistenceIntervalMilliseconds;
@@ -34,18 +36,20 @@ namespace FastQueue.Server.Core
         internal long PersistedMessageId => persistedMessageId;
         internal DataSnapshot CurrentData => currentData;
 
-        internal Topic(string name, IPersistentStorage persistentStorage, ISubscriptionsConfigurationStorage subscriptionsConfigurationStorage,
+        internal Topic(string name, IPersistentStorage persistentStorage, 
+            ISubscriptionsConfigurationStorage subscriptionsConfigurationStorage,
+            ISubscriptionPointersStorage subscriptionPointersStorage,
             TopicOptions topicOptions)
         {
             this.name = name;
             this.persistentStorage = persistentStorage;
             this.subscriptionsConfigurationStorage = subscriptionsConfigurationStorage;
+            this.subscriptionPointersStorage = subscriptionPointersStorage;
             persistenceIntervalMilliseconds = topicOptions.PersistenceIntervalMilliseconds;
             dataArrayOptions = new InfiniteArrayOptions(topicOptions.DataArrayOptions);
             writers = new HashSet<TopicWriter>();
             subscriptions = new Dictionary<string, Subscription>();
             cancellationTokenSource = new CancellationTokenSource();
-            // ::: move to Restore
             lastFreeToId = 1;
         }
 
@@ -83,6 +87,7 @@ namespace FastQueue.Server.Core
         {
             Task.Factory.StartNew(async () => await PersistenceLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
             Task.Factory.StartNew(async () => await CleanupLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            Task.Factory.StartNew(async () => await SubscriptionPointersFlushLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
         }
 
         internal void Stop()
@@ -98,6 +103,7 @@ namespace FastQueue.Server.Core
             {
                 persistedMessageId = lastMessageId = -1;
                 data = new InfiniteArray<Message>(0, dataArrayOptions);
+                RestoreSubscriptions();
                 return;
             }
 
@@ -116,7 +122,6 @@ namespace FastQueue.Server.Core
             };
 
             persistedMessageId = lastMessageId = currentData.Data[^1].Span[^1].ID;
-
             RestoreSubscriptions();
         }
 
@@ -163,7 +168,8 @@ namespace FastQueue.Server.Core
                     throw new SubscriptionManagementException($"Subscription {subscriptionName} already exists in the topic {name}");
                 }
 
-                subscriptions.Add(subscriptionName, new Subscription(Guid.NewGuid(), subscriptionName, this, startReadingFromId - 1));
+                subscriptions.Add(subscriptionName, new Subscription(Guid.NewGuid(), subscriptionName, this, startReadingFromId - 1,
+                    subscriptionPointersStorage));
 
                 UpdateSubscriptionsConfiguration();
             }
@@ -218,11 +224,17 @@ namespace FastQueue.Server.Core
         private void RestoreSubscriptions()
         {
             var config = subscriptionsConfigurationStorage.Read();
+            var pointers = subscriptionPointersStorage.Restore();
 
             foreach (var item in config.Subscriptions)
             {
-                // ::: use completedId instead of persistedMessageId
-                subscriptions.Add(item.Name, new Subscription(item.Id, item.Name, this, persistedMessageId));
+                long completedId;
+                if (!pointers.TryGetValue(item.Id, out completedId))
+                {
+                    completedId = persistedMessageId;
+                }
+
+                subscriptions.Add(item.Name, new Subscription(item.Id, item.Name, this, completedId, subscriptionPointersStorage));
             }
         }
 
@@ -291,6 +303,30 @@ namespace FastQueue.Server.Core
                         FreeTo(firstNonCompletedId);
                         lastFreeToId = firstNonCompletedId;
                     }
+                }
+            }
+        }
+
+        private async Task SubscriptionPointersFlushLoop(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(SubscriptionPointersFlushIntervalMilliseconds, cancellationToken);
+
+                    try
+                    {
+                        subscriptionPointersStorage.Flush();
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
                 }
             }
         }
