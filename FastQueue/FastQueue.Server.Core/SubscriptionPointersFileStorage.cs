@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace FastQueue.Server.Core
@@ -11,29 +12,38 @@ namespace FastQueue.Server.Core
         private long fileLengthThreshold;
         private string namePrefix;
         private string directoryPath;
+        private string fileName;
         private BinaryWriter writer;
         private FileStream fileStream;
         private long currentLength;
         private object sync = new object();
+        private Func<Dictionary<Guid, long>> currentPointersGetter;
 
         internal SubscriptionPointersFileStorage(SubscriptionPointersFileStorageOptions options)
         {
             fileLengthThreshold = options.FileLengthThreshold;
             namePrefix = options.NamePrefix;
             directoryPath = options.DirectoryPath;
+            fileName = Path.Combine(directoryPath, namePrefix + ".bin");
         }
 
         public void Write(Guid subscriptionId, long completedId)
         {
             lock (sync)
             {
-                writer.Write(subscriptionId.ToByteArray());
-                writer.Write(completedId);
-                currentLength += 24;
+                InternalWrite(writer, subscriptionId, completedId);
             }
         }
 
-        private bool Read(BinaryReader reader, out Guid subscriptionId, out long completedId)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void InternalWrite(BinaryWriter binaryWriter, Guid subscriptionId, long completedId)
+        {
+            binaryWriter.Write(subscriptionId.ToByteArray());
+            binaryWriter.Write(completedId);
+            currentLength += 24;
+        }
+
+        private bool InternalRead(BinaryReader reader, out Guid subscriptionId, out long completedId)
         {
             try
             {
@@ -55,6 +65,11 @@ namespace FastQueue.Server.Core
             lock (sync)
             {
                 fileStream.Flush(true);
+
+                if (currentLength >= fileLengthThreshold)
+                {
+                    Recreate();
+                }
             }
         }
 
@@ -65,10 +80,10 @@ namespace FastQueue.Server.Core
             fileStream.Dispose();
         }
 
-        public Dictionary<Guid, long> Restore()
+        public Dictionary<Guid, long> Restore(Func<Dictionary<Guid, long>> currentPointersGetter)
         {
+            this.currentPointersGetter = currentPointersGetter;
             var dict = new Dictionary<Guid, long>();
-            var fileName = Path.Combine(directoryPath, namePrefix + ".bin");
 
             if (File.Exists(fileName))
             {
@@ -76,7 +91,7 @@ namespace FastQueue.Server.Core
                 long completedId;
                 using (var reader = new BinaryReader(File.OpenRead(fileName), Encoding.UTF8, false))
                 {
-                    while (Read(reader, out subscriptionId, out completedId))
+                    while (InternalRead(reader, out subscriptionId, out completedId))
                     {
                         dict[subscriptionId] = completedId;
                     }
@@ -86,13 +101,41 @@ namespace FastQueue.Server.Core
             }
             else
             {
-                fileStream = File.OpenWrite(fileName);
+                fileStream = File.Create(fileName);
             }
 
             writer = new BinaryWriter(fileStream, Encoding.UTF8, true);
             currentLength = fileStream.Length;
 
             return dict;
+        }
+
+        private void Recreate()
+        {
+            var pointers = currentPointersGetter();
+            writer.Dispose();
+            fileStream.Dispose();
+
+            var newFileName = Path.Combine(directoryPath, namePrefix + "_new.bin");
+
+            using (var w = new BinaryWriter(File.Create(newFileName), Encoding.UTF8, false))
+            {
+                currentLength = 0;
+                foreach (var item in pointers)
+                {
+                    InternalWrite(w, item.Key, item.Value);
+                }
+            }
+
+            if (File.Exists(fileName))
+            {
+                File.Delete(fileName);
+            }
+
+            File.Move(newFileName, fileName);
+
+            fileStream = File.Open(fileName, FileMode.Append, FileAccess.Write, FileShare.Write);
+            writer = new BinaryWriter(fileStream, Encoding.UTF8, true);
         }
     }
 

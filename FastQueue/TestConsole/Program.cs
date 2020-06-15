@@ -38,7 +38,7 @@ namespace TestConsole
 
             var subPointersStorage = new SubscriptionPointersFileStorage(new SubscriptionPointersFileStorageOptions
             {
-                FileLengthThreshold = 10 * 1024 * 1024,
+                FileLengthThreshold = 10 * 1024,
                 DirectoryPath = @"C:\temp\storage",
                 NamePrefix = "Pointers"
             });
@@ -122,7 +122,7 @@ namespace TestConsole
             length = 1;
             Console.WriteLine($"Start sending: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
 
-            for (long i = 0; i < 1_000_000; i += length)
+            for (long i = 0; i < 100_000_000; i += length)
             {
                 if (start + length > messages.Length)
                 {

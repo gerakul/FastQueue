@@ -224,7 +224,7 @@ namespace FastQueue.Server.Core
         private void RestoreSubscriptions()
         {
             var config = subscriptionsConfigurationStorage.Read();
-            var pointers = subscriptionPointersStorage.Restore();
+            var pointers = subscriptionPointersStorage.Restore(GetCurrentCompletedIds);
 
             foreach (var item in config.Subscriptions)
             {
@@ -328,6 +328,14 @@ namespace FastQueue.Server.Core
                 {
                     break;
                 }
+            }
+        }
+
+        private Dictionary<Guid, long> GetCurrentCompletedIds()
+        {
+            lock (subscriptionsSync)
+            {
+                return subscriptions.Values.ToDictionary(x => x.Id, x => x.CompletedMessageId);
             }
         }
     }

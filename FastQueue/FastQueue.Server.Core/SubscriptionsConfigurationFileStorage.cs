@@ -30,16 +30,6 @@ namespace FastQueue.Server.Core
 
         public void Update(SubscriptionsConfiguration subscriptionsConfiguration)
         {
-            if (File.Exists(configFileNew))
-            {
-                File.Delete(configFileNew);
-            }
-
-            if (File.Exists(mapFileNew))
-            {
-                File.Delete(mapFileNew);
-            }
-
             CreateNewSubscriptionsConfigurationFile(subscriptionsConfiguration);
             CreateNewSubscriptionsMapFile(subscriptionsConfiguration);
 
@@ -92,7 +82,7 @@ namespace FastQueue.Server.Core
         {
             var subscriptions = subscriptionsConfiguration.Subscriptions ?? new List<SubscriptionConfiguration>();
 
-            using (var writer = new BinaryWriter(File.OpenWrite(mapFileNew), Encoding.UTF8, false))
+            using (var writer = new BinaryWriter(File.Create(mapFileNew), Encoding.UTF8, false))
             {
                 foreach (var item in subscriptions)
                 {

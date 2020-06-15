@@ -8,6 +8,6 @@ namespace FastQueue.Server.Core.Abstractions
     {
         void Write(Guid subscriptionId, long completedId);
         void Flush();
-        Dictionary<Guid, long> Restore();
+        Dictionary<Guid, long> Restore(Func<Dictionary<Guid, long>> currentPointersGetter);
     }
 }
