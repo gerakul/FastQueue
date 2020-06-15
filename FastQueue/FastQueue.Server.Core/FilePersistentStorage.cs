@@ -4,7 +4,6 @@ using FastQueue.Server.Core.Model;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 
 namespace FastQueue.Server.Core

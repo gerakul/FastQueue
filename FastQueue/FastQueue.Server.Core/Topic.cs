@@ -165,16 +165,7 @@ namespace FastQueue.Server.Core
 
                 subscriptions.Add(subscriptionName, new Subscription(Guid.NewGuid(), subscriptionName, this, startReadingFromId - 1));
 
-                var newConfig = new SubscriptionsConfiguration
-                {
-                    Subscriptions = subscriptions.Values.Select(x => new SubscriptionConfiguration
-                    {
-                        Id = x.Id,
-                        Name = x.Name
-                    }).ToList()
-                };
-
-                subscriptionsConfigurationStorage.Update(newConfig);
+                UpdateSubscriptionsConfiguration();
             }
         }
 
@@ -190,6 +181,8 @@ namespace FastQueue.Server.Core
 
                 sub.Dispose();
                 subscriptions.Remove(subscriptionName);
+
+                UpdateSubscriptionsConfiguration();
             }
         }
 
@@ -206,6 +199,20 @@ namespace FastQueue.Server.Core
 
                 return sub.CreateSubscriber(push, subscriberOptions ?? new SubscriberOptions());
             }
+        }
+
+        private void UpdateSubscriptionsConfiguration()
+        {
+            var newConfig = new SubscriptionsConfiguration
+            {
+                Subscriptions = subscriptions.Values.Select(x => new SubscriptionConfiguration
+                {
+                    Id = x.Id,
+                    Name = x.Name
+                }).ToList()
+            };
+
+            subscriptionsConfigurationStorage.Update(newConfig);
         }
 
         private void RestoreSubscriptions()
