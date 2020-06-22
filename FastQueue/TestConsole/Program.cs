@@ -62,9 +62,12 @@ namespace TestConsole
 
             Console.WriteLine("Before Read");
 
+            //server.GetTopic(topicName).DeleteSubscription("sub2");
+            //server.GetTopic(topicName).DeleteSubscription("sub3");
+
             var sub1 = Read(topicName, "sub1");
-            var sub2 = Read(topicName, "sub2");
-            var sub3 = Read(topicName, "sub3");
+            //var sub2 = Read(topicName, "sub2");
+            //var sub3 = Read(topicName, "sub3");
 
             Console.WriteLine("Before WhenAll");
 
@@ -73,8 +76,8 @@ namespace TestConsole
             Console.WriteLine("After WhenAll");
 
             sub1.Dispose();
-            sub2.Dispose();
-            sub3.Dispose();
+            //sub2.Dispose();
+            //sub3.Dispose();
 
             server.Stop();
         }
@@ -100,7 +103,9 @@ namespace TestConsole
 
             for (int i = 0; i < 1_000_000; i++)
             {
-                writer.Write(new WriteRequest(i, messages[i % messages.Length]));
+                var m = messages[i % messages.Length];
+                Buffer.BlockCopy(BitConverter.GetBytes(DateTime.UtcNow.Ticks), 0, m, 0, 8);
+                writer.Write(new WriteRequest(i, m));
             }
 
             await Task.Delay(2000);
@@ -124,18 +129,26 @@ namespace TestConsole
                 var cnt = Interlocked.Add(ref receivedCount, ms.Length);
                 Console.WriteLine($"{subName}: Received {cnt}. Last {ms.Span[^1].ID} {DateTimeOffset.UtcNow:mm:ss.fffffff}");
 
-                var arr = ms.ToArray();
-                for (int i = 0; i < ms.Length; i++)
+                void AppendPathSeparator(ReadOnlySpan<Message> msgs)
                 {
-                    if (prevId > 0 && arr[i].ID - 1 != prevId)
+                    for (int i = 0; i < msgs.Length; i++)
                     {
-                        Console.WriteLine($"{subName}: Missing {prevId} - {arr[i].ID}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+                        if (prevId > 0 && msgs[i].ID - 1 != prevId)
+                        {
+                            Console.WriteLine($"{subName}: Missing {prevId} - {msgs[i].ID}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+                        }
+
+                        prevId = msgs[i].ID;
                     }
 
-                    prevId = arr[i].ID;
+                    sub.Complete(msgs[^1].ID);
+
+                    var d = new DateTimeOffset(BitConverter.ToInt64(msgs[0].Body.Span.Slice(0, 8)), TimeSpan.Zero);
+
+                    Console.WriteLine($"{subName}: Max latency: {(DateTimeOffset.UtcNow - d).TotalMilliseconds}");
                 }
 
-                sub.Complete(arr[^1].ID);
+                AppendPathSeparator(ms.Span);
 
                 await Task.CompletedTask;
             }, new SubscriberOptions
