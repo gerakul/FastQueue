@@ -10,19 +10,23 @@ namespace FastQueue.Server.Core
     {
         private readonly string directoryPath;
         private readonly TopicOptions topicOptions;
+        private readonly long persistentStorageFileLengthThreshold;
+        private readonly long subscriptionPointersStorageFileLengthThreshold;
 
         public FileTopicFactory(TopicFactoryOptions options)
         {
             directoryPath = options.DirectoryPath;
             topicOptions = options.TopicOptions;
+            persistentStorageFileLengthThreshold = options.PersistentStorageFileLengthThreshold;
+            subscriptionPointersStorageFileLengthThreshold = options.SubscriptionPointersStorageFileLengthThreshold;
         }
 
         public ITopicManagement CreateTopic(string name)
         {
-            // ::: introduce individual factories for storages
             var persistentStorage = new FilePersistentStorage(new FilePersistentStorageOptions
             {
-                DirectoryPath = Path.Combine(directoryPath, name)
+                DirectoryPath = Path.Combine(directoryPath, name),
+                FileLengthThreshold = persistentStorageFileLengthThreshold
             });
 
             var subscriptionsConfigurationStorage = new SubscriptionsConfigurationFileStorage(new SubscriptionsConfigurationFileStorageOptions
@@ -32,7 +36,8 @@ namespace FastQueue.Server.Core
 
             var subscriptionPointersStorage = new SubscriptionPointersFileStorage(new SubscriptionPointersFileStorageOptions
             { 
-                DirectoryPath = Path.Combine(directoryPath, name)
+                DirectoryPath = Path.Combine(directoryPath, name),
+                FileLengthThreshold = subscriptionPointersStorageFileLengthThreshold
             });
 
             return new Topic(name, persistentStorage, subscriptionsConfigurationStorage, subscriptionPointersStorage, topicOptions);
