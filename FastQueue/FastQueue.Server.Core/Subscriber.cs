@@ -1,4 +1,5 @@
-﻿using FastQueue.Server.Core.Exceptions;
+﻿using FastQueue.Server.Core.Abstractions;
+using FastQueue.Server.Core.Exceptions;
 using FastQueue.Server.Core.Model;
 using System;
 using System.Threading;
@@ -6,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
-    public class Subscriber : IDisposable
+    public class Subscriber : ISubscriber
     {
         private readonly Subscription subscription;
         private readonly Topic topic;
@@ -33,7 +34,7 @@ namespace FastQueue.Server.Core
 
         internal void StartPushLoop()
         {
-            Task.Factory.StartNew(async () => await PushLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            Task.Factory.StartNew(() => PushLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
         }
 
         internal void StopPushLoop()

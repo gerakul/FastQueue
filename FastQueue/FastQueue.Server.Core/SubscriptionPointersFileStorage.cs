@@ -7,7 +7,7 @@ using System.Text;
 
 namespace FastQueue.Server.Core
 {
-    public class SubscriptionPointersFileStorage : ISubscriptionPointersStorage
+    internal class SubscriptionPointersFileStorage : ISubscriptionPointersStorage
     {
         private long fileLengthThreshold;
         private string namePrefix;

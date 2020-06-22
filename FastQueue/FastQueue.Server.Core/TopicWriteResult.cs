@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace FastQueue.Server.Core.Model
+namespace FastQueue.Server.Core
 {
     internal readonly struct TopicWriteResult
     {

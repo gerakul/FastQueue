@@ -1,4 +1,5 @@
 ﻿using FastQueue.Server.Core;
+using FastQueue.Server.Core.Abstractions;
 using FastQueue.Server.Core.Model;
 using System;
 using System.Buffers;
@@ -7,19 +8,143 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Schema;
 
 namespace TestConsole
 {
     class Program
     {
+        private static Server server;
+
         static async Task Main(string[] args)
         {
             //await InfiniteArrayTest();
             //await TopicPerformance();
-            await TopicTest();
+            //await TopicTest();
+            await ServerTest();
 
             Console.WriteLine("end");
             await Task.CompletedTask;
+        }
+
+        static async Task ServerTest()
+        {
+            var topicFactory = new FileTopicFactory(new TopicFactoryOptions
+            {
+                DirectoryPath = @"C:\temp\storage",
+                PersistentStorageFileLengthThreshold = 100 * 1024 * 1024,
+                SubscriptionPointersStorageFileLengthThreshold = 10 * 1024 * 1024,
+                TopicOptions = new TopicOptions
+                {
+                    PersistenceIntervalMilliseconds = 50,
+                    DataArrayOptions = new InfiniteArrayOptions
+                    {
+                        BlockLength = 100000,
+                        DataListCapacity = 128,
+                        MinimumFreeBlocks = 20
+                    }
+                }
+            });
+
+            var topicsConfigStorage = new TopicsConfigurationFileStorage(new TopicsConfigurationFileStorageOptions
+            {
+                ConfigurationFile = @"C:\temp\storage\Topics.json"
+            });
+
+            server = new Server(topicFactory, topicsConfigStorage);
+            server.Restore();
+
+            string topicName = "topic1";
+
+            //server.CreateNewTopic(topicName);
+
+            var writerTask = Task.Factory.StartNew(() => WriterLoop(topicName), TaskCreationOptions.LongRunning);
+
+            Console.WriteLine("Before Read");
+
+            var sub1 = Read(topicName, "sub1");
+            var sub2 = Read(topicName, "sub2");
+            var sub3 = Read(topicName, "sub3");
+
+            Console.WriteLine("Before WhenAll");
+
+            await await writerTask;
+
+            Console.WriteLine("After WhenAll");
+
+            sub1.Dispose();
+            sub2.Dispose();
+            sub3.Dispose();
+
+            server.Stop();
+        }
+
+        static async Task WriterLoop(string topicName)
+        {
+            var rnd = new Random(DateTimeOffset.UtcNow.Millisecond);
+            var messages = new byte[1000][];
+            for (int i = 0; i < messages.Length; i++)
+            {
+                byte[] arr = new byte[100];
+                rnd.NextBytes(arr);
+                messages[i] = arr;
+            }
+
+            var topic = server.GetTopic(topicName);
+
+            var writer = topic.CreateWriter(async (ack, c) =>
+            {
+                Console.WriteLine($"Confirmed {ack.SequenceNumber}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+                await Task.CompletedTask;
+            });
+
+            for (int i = 0; i < 1_000_000; i++)
+            {
+                writer.Write(new WriteRequest(i, messages[i % messages.Length]));
+            }
+
+            await Task.Delay(2000);
+
+            writer.Dispose();
+        }
+
+        static ISubscriber Read(string topicName, string subName)
+        {
+            var topic = server.GetTopic(topicName);
+            if (!topic.SubscriptionExists(subName))
+            {
+                topic.CreateSubscription(subName);
+            }
+
+            int receivedCount = 0;
+            long prevId = 0;
+            ISubscriber sub = null;
+            sub = topic.Subscribe(subName, async (ms, ct) =>
+            {
+                var cnt = Interlocked.Add(ref receivedCount, ms.Length);
+                Console.WriteLine($"{subName}: Received {cnt}. Last {ms.Span[^1].ID} {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+
+                var arr = ms.ToArray();
+                for (int i = 0; i < ms.Length; i++)
+                {
+                    if (prevId > 0 && arr[i].ID - 1 != prevId)
+                    {
+                        Console.WriteLine($"{subName}: Missing {prevId} - {arr[i].ID}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+                    }
+
+                    prevId = arr[i].ID;
+                }
+
+                sub.Complete(arr[^1].ID);
+
+                await Task.CompletedTask;
+            }, new SubscriberOptions
+            {
+                MaxMessagesInBatch = 10000,
+                PushIntervalMilliseconds = 50
+            });
+
+            return sub;
         }
 
         static async Task TopicTest()
@@ -61,7 +186,7 @@ namespace TestConsole
             int receivedCount = 0;
             long prevId = topic.PersistedMessageId;
             //topic.CreateSubscription("sub1");
-            Subscriber sub = null;
+            ISubscriber sub = null;
             sub = topic.Subscribe("sub1", async (ms, ct) =>
             {
                 var cnt = Interlocked.Add(ref receivedCount, ms.Length);

@@ -36,6 +36,11 @@ namespace FastQueue.Server.Core
 
         public IEnumerable<Message> Restore()
         {
+            if (!Directory.Exists(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
+
             var candidates = Directory.GetFiles(directoryPath, $"{namePrefix}_*.bin", SearchOption.TopDirectoryOnly);
             var preLen = namePrefix.Length + 1;
 
@@ -262,7 +267,7 @@ namespace FastQueue.Server.Core
 
     public class FilePersistentStorageOptions
     {
-        public long FileLengthThreshold { get; set; } = 1024 * 1024 * 1024;
+        public long FileLengthThreshold { get; set; } = 100 * 1024 * 1024;
         public string NamePrefix { get; set; } = "Data";
         public string DirectoryPath { get; set; }
 

@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
-    internal class Topic
+    internal class Topic : ITopicManagement
     {
         private const int CleanupIntervalMilliseconds = 200;
         private const int SubscriptionPointersFlushIntervalMilliseconds = 200;
@@ -83,19 +83,20 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal void Start()
+        public void Start()
         {
-            Task.Factory.StartNew(async () => await PersistenceLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
-            Task.Factory.StartNew(async () => await CleanupLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
-            Task.Factory.StartNew(async () => await SubscriptionPointersFlushLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            Task.Factory.StartNew(() => PersistenceLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            Task.Factory.StartNew(() => CleanupLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            Task.Factory.StartNew(() => SubscriptionPointersFlushLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
         }
 
-        internal void Stop()
+        public void Stop()
         {
+            // ::: implement correct stopping
             cancellationTokenSource.Cancel();
         }
 
-        internal void Restore()
+        public void Restore()
         {
             var restoreEnumerator = persistentStorage.Restore().GetEnumerator();
 
@@ -125,16 +126,7 @@ namespace FastQueue.Server.Core
             RestoreSubscriptions();
         }
 
-        internal void FreeTo(long firstValidMessageId)
-        {
-            lock (dataSync)
-            {
-                data.FreeTo(firstValidMessageId);
-                persistentStorage.FreeTo(firstValidMessageId);
-            }
-        }
-
-        internal TopicWriter CreateWriter(Func<PublisherAck, CancellationToken, Task> ackHandler)
+        public ITopicWriter CreateWriter(Func<PublisherAck, CancellationToken, Task> ackHandler)
         {
             lock (writersSync)
             {
@@ -154,12 +146,12 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal void CreateSubscription(string subscriptionName)
+        public void CreateSubscription(string subscriptionName)
         {
             CreateSubscription(subscriptionName, persistedMessageId + 1);
         }
 
-        internal void CreateSubscription(string subscriptionName, long startReadingFromId)
+        public void CreateSubscription(string subscriptionName, long startReadingFromId)
         {
             lock (subscriptionsSync)
             {
@@ -175,7 +167,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal void DeleteSubscription(string subscriptionName)
+        public void DeleteSubscription(string subscriptionName)
         {
             lock (subscriptionsSync)
             {
@@ -192,7 +184,15 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal Subscriber Subscribe(string subscriptionName, Func<ReadOnlyMemory<Message>, CancellationToken, Task> push, 
+        public bool SubscriptionExists(string subscriptionName)
+        {
+            lock (subscriptionsSync)
+            {
+                return subscriptions.ContainsKey(subscriptionName);
+            }
+        }
+
+        public ISubscriber Subscribe(string subscriptionName, Func<ReadOnlyMemory<Message>, CancellationToken, Task> push, 
             SubscriberOptions subscriberOptions = null)
         {
             lock (subscriptionsSync)
@@ -336,6 +336,15 @@ namespace FastQueue.Server.Core
             lock (subscriptionsSync)
             {
                 return subscriptions.Values.ToDictionary(x => x.Id, x => x.CompletedMessageId);
+            }
+        }
+
+        private void FreeTo(long firstValidMessageId)
+        {
+            lock (dataSync)
+            {
+                data.FreeTo(firstValidMessageId);
+                persistentStorage.FreeTo(firstValidMessageId);
             }
         }
     }

@@ -1,4 +1,5 @@
-﻿using FastQueue.Server.Core.Exceptions;
+﻿using FastQueue.Server.Core.Abstractions;
+using FastQueue.Server.Core.Exceptions;
 using FastQueue.Server.Core.Model;
 using System;
 using System.Threading;
@@ -6,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
-    internal class TopicWriter : IDisposable
+    internal class TopicWriter : ITopicWriter
     {
         private const int ConfirmationIntervalMilliseconds = 50;
 
@@ -44,7 +45,7 @@ namespace FastQueue.Server.Core
             });
         }
 
-        internal void Write(WriteManyRequest request)
+        public void Write(WriteManyRequest request)
         {
             lock (sync)
             {
@@ -58,7 +59,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal void Write(WriteRequest request)
+        public void Write(WriteRequest request)
         {
             lock (sync)
             {
@@ -74,7 +75,7 @@ namespace FastQueue.Server.Core
 
         internal void StartConfirmationLoop()
         {
-            Task.Factory.StartNew(async () => await ConfirmationLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            Task.Factory.StartNew(() => ConfirmationLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
         }
 
         internal void StopConfirmationLoop()
