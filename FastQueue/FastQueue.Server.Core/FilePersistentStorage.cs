@@ -179,41 +179,39 @@ namespace FastQueue.Server.Core
 
         private IEnumerable<Message> ReadFile(FileDescriptor fileDescriptor, bool isFirst, Message lastMessage)
         {
-            using (var reader = new BinaryReader(File.OpenRead(fileDescriptor.Name), Encoding.UTF8, false))
+            using var reader = new BinaryReader(File.OpenRead(fileDescriptor.Name), Encoding.UTF8, false);
+            Message m = ReadMessage(reader);
+            if (m.ID == -1)
             {
-                Message m = ReadMessage(reader);
-                if (m.ID == -1)
-                {
-                    if (!isFirst)
-                    {
-                        throw new RestoreException($"Only first file can be empty");
-                    }
-
-                    if (fileDescriptor.StartMessageId != 0)
-                    {
-                        throw new RestoreException($"Empty first file should have a StartMessageId = 0. Actual value is {fileDescriptor.StartMessageId}");
-                    }
-
-                    yield break;
-                }
-
-                if (fileDescriptor.StartMessageId != m.ID)
-                {
-                    throw new RestoreException($"File name {Path.GetFileName(fileDescriptor.Name)} doesn't match the first message {m.ID}");
-                }
-
                 if (!isFirst)
                 {
-                    MessageOrderCheck(lastMessage, m, fileDescriptor.Name);
+                    throw new RestoreException($"Only first file can be empty");
                 }
 
-                var last = m;
-                while ((m = ReadMessage(reader)).ID != -1)
+                if (fileDescriptor.StartMessageId != 0)
                 {
-                    MessageOrderCheck(last, m, fileDescriptor.Name);
-                    yield return m;
-                    last = m;
+                    throw new RestoreException($"Empty first file should have a StartMessageId = 0. Actual value is {fileDescriptor.StartMessageId}");
                 }
+
+                yield break;
+            }
+
+            if (fileDescriptor.StartMessageId != m.ID)
+            {
+                throw new RestoreException($"File name {Path.GetFileName(fileDescriptor.Name)} doesn't match the first message {m.ID}");
+            }
+
+            if (!isFirst)
+            {
+                MessageOrderCheck(lastMessage, m, fileDescriptor.Name);
+            }
+
+            var last = m;
+            while ((m = ReadMessage(reader)).ID != -1)
+            {
+                MessageOrderCheck(last, m, fileDescriptor.Name);
+                yield return m;
+                last = m;
             }
         }
 

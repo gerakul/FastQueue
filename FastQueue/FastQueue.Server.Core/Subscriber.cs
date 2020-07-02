@@ -136,7 +136,7 @@ namespace FastQueue.Server.Core
 
             if (ind < messages.Length)
             {
-                await pushHandler(messages.Slice(ind, messages.Length - ind), cancellationToken);
+                await pushHandler(messages[ind..], cancellationToken);
             }
         }
 

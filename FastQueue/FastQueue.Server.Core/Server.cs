@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
@@ -42,16 +43,24 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public void Stop()
+        public async Task Stop()
         {
+            List<ITopicManagement> topicsList;
             lock (sync)
             {
+                if (stopping)
+                {
+                    return;
+                }
+
                 stopping = true;
 
-                foreach (var item in topics.Values)
-                {
-                    item.Stop();
-                }
+                topicsList = topics.Values.ToList();
+            }
+
+            foreach (var item in topicsList)
+            {
+                await item.Stop();
             }
         }
 

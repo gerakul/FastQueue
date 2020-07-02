@@ -79,7 +79,7 @@ namespace TestConsole
             //sub2.Dispose();
             //sub3.Dispose();
 
-            server.Stop();
+            await server.Stop();
         }
 
         static async Task WriterLoop(string topicName)
@@ -303,6 +303,8 @@ namespace TestConsole
 
 
             var blocks = data.GetDataBlocks();
+
+            await Task.CompletedTask;
         }
     }
 }
