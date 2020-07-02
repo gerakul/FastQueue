@@ -4,7 +4,7 @@ using System.Text;
 
 namespace FastQueue.Server.Core.Abstractions
 {
-    public interface ISubscriber : IDisposable
+    public interface ISubscriber : IAsyncDisposable
     {
         void Complete(long messageId);
     }

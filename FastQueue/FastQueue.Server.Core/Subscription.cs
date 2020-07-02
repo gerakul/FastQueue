@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
-    internal class Subscription : IDisposable
+    internal class Subscription : IAsyncDisposable
     {
         private Guid id;
         private string name;
@@ -59,8 +59,9 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal void DeleteSubscriber()
+        internal async Task DeleteSubscriber()
         {
+            Subscriber s;
             lock (sync)
             {
                 if (subscriber == null)
@@ -68,14 +69,20 @@ namespace FastQueue.Server.Core
                     return;
                 }
 
-                subscriber.StopPushLoop();
+                s = subscriber;
                 subscriber = null;
             }
+
+            await s.StopPushLoop();
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
-            subscriber?.Dispose();
+            var s = subscriber;
+            if (s != null)
+            {
+                await s.DisposeAsync();
+            }
         }
     }
 }

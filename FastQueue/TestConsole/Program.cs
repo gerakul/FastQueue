@@ -75,7 +75,7 @@ namespace TestConsole
 
             Console.WriteLine("After WhenAll");
 
-            sub1.Dispose();
+            await sub1.DisposeAsync();
             //sub2.Dispose();
             //sub3.Dispose();
 
@@ -110,7 +110,7 @@ namespace TestConsole
 
             await Task.Delay(2000);
 
-            writer.Dispose();
+            await writer.DisposeAsync();
         }
 
         static ISubscriber Read(string topicName, string subName)
@@ -129,7 +129,7 @@ namespace TestConsole
                 var cnt = Interlocked.Add(ref receivedCount, ms.Length);
                 Console.WriteLine($"{subName}: Received {cnt}. Last {ms.Span[^1].ID} {DateTimeOffset.UtcNow:mm:ss.fffffff}");
 
-                void AppendPathSeparator(ReadOnlySpan<Message> msgs)
+                void ProcessMessages(ReadOnlySpan<Message> msgs)
                 {
                     for (int i = 0; i < msgs.Length; i++)
                     {
@@ -148,7 +148,7 @@ namespace TestConsole
                     Console.WriteLine($"{subName}: Max latency: {(DateTimeOffset.UtcNow - d).TotalMilliseconds}");
                 }
 
-                AppendPathSeparator(ms.Span);
+                ProcessMessages(ms.Span);
 
                 await Task.CompletedTask;
             }, new SubscriberOptions

@@ -32,6 +32,10 @@ namespace FastQueue.Server.Core
         private CancellationTokenSource cancellationTokenSource;
         private DataSnapshot currentData;
         private long lastFreeToId;
+        private bool stopping;
+        private Task<Task> persistenceLoopTask;
+        private Task<Task> cleanupLoopTask;
+        private Task<Task> subscriptionPointersFlushLoopTask;
 
         internal long PersistedMessageId => persistedMessageId;
         internal DataSnapshot CurrentData => currentData;
@@ -51,6 +55,7 @@ namespace FastQueue.Server.Core
             subscriptions = new Dictionary<string, Subscription>();
             cancellationTokenSource = new CancellationTokenSource();
             lastFreeToId = 1;
+            stopping = false;
         }
 
         internal TopicWriteResult Write(ReadOnlySpan<ReadOnlyMemory<byte>> messages)
@@ -85,15 +90,45 @@ namespace FastQueue.Server.Core
 
         public void Start()
         {
-            Task.Factory.StartNew(() => PersistenceLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
-            Task.Factory.StartNew(() => CleanupLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
-            Task.Factory.StartNew(() => SubscriptionPointersFlushLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            persistenceLoopTask = Task.Factory.StartNew(() => PersistenceLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            cleanupLoopTask =  Task.Factory.StartNew(() => CleanupLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            subscriptionPointersFlushLoopTask = Task.Factory.StartNew(() => SubscriptionPointersFlushLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
         }
 
-        public void Stop()
+        public async Task Stop()
         {
-            // ::: implement correct stopping
+            List<TopicWriter> writersList;
+            List<Subscription> subscriptionsList;
+            lock (writersSync)
+            {
+                lock (subscriptionsSync)
+                {
+                    stopping = true;
+                    subscriptionsList = subscriptions.Values.ToList();
+                }
+
+                writersList = writers.ToList();
+            }
+
+            foreach (var w in writersList)
+            {
+                await w.DisposeAsync();
+            }
+
+            foreach (var s in subscriptionsList)
+            {
+                await s.DisposeAsync();
+            }
+
             cancellationTokenSource.Cancel();
+
+            await await persistenceLoopTask;
+            await await cleanupLoopTask;
+            await await subscriptionPointersFlushLoopTask;
+
+            PersistenceAction();
+            CleanupAction();
+            SubscriptionPointersFlushAction();
         }
 
         public void Restore()
@@ -130,6 +165,11 @@ namespace FastQueue.Server.Core
         {
             lock (writersSync)
             {
+                if (stopping)
+                {
+                    throw new TopicManagementException($"Cannot create Writer when topic {name} is being stopped");
+                }
+
                 var writer = new TopicWriter(this, ackHandler);
                 writers.Add(writer);
                 writer.StartConfirmationLoop();
@@ -137,13 +177,14 @@ namespace FastQueue.Server.Core
             }
         }
 
-        internal void DeleteWriter(TopicWriter writer)
+        internal async Task DeleteWriter(TopicWriter writer)
         {
             lock (writersSync)
             {
-                writer.StopConfirmationLoop();
                 writers.Remove(writer);
-            }
+            }     
+            
+            await writer.StopConfirmationLoop();
         }
 
         public void CreateSubscription(string subscriptionName)
@@ -155,6 +196,11 @@ namespace FastQueue.Server.Core
         {
             lock (subscriptionsSync)
             {
+                if (stopping)
+                {
+                    throw new TopicManagementException($"Cannot create subscription when topic {name} is being stopped");
+                }
+
                 if (subscriptions.ContainsKey(subscriptionName))
                 {
                     throw new SubscriptionManagementException($"Subscription {subscriptionName} already exists in the topic {name}");
@@ -167,21 +213,22 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public void DeleteSubscription(string subscriptionName)
+        public async Task DeleteSubscription(string subscriptionName)
         {
+            Subscription sub;
             lock (subscriptionsSync)
             {
-                Subscription sub;
                 if (!subscriptions.TryGetValue(subscriptionName, out sub))
                 {
                     return;
                 }
 
-                sub.Dispose();
                 subscriptions.Remove(subscriptionName);
 
                 UpdateSubscriptionsConfiguration();
             }
+
+            await sub.DisposeAsync();
         }
 
         public bool SubscriptionExists(string subscriptionName)
@@ -197,6 +244,11 @@ namespace FastQueue.Server.Core
         {
             lock (subscriptionsSync)
             {
+                if (stopping)
+                {
+                    throw new SubscriptionManagementException($"Cannot subscribe when topic {name} is being stopped");
+                }
+
                 Subscription sub;
                 if (!subscriptions.TryGetValue(subscriptionName, out sub))
                 {
@@ -245,33 +297,38 @@ namespace FastQueue.Server.Core
                 try
                 {
                     await Task.Delay(persistenceIntervalMilliseconds, cancellationToken);
-
-                    lock (dataSync)
-                    {
-                        if (persistedMessageId != lastMessageId)
-                        {
-                            try
-                            {
-                                persistentStorage.Flush();
-                            }
-                            catch
-                            {
-                                continue;
-                            }
-
-                            persistedMessageId = lastMessageId;
-
-                            currentData = new DataSnapshot()
-                            {
-                                StartMessageId = data.GetFirstItemIndex(),
-                                Data = data.GetDataBlocks()
-                            };
-                        }
-                    }
                 }
                 catch (TaskCanceledException)
                 {
                     break;
+                }
+
+                PersistenceAction();
+            }
+        }
+
+        private void PersistenceAction()
+        {
+            lock (dataSync)
+            {
+                if (persistedMessageId != lastMessageId)
+                {
+                    try
+                    {
+                        persistentStorage.Flush();
+                    }
+                    catch
+                    {
+                        return;
+                    }
+
+                    persistedMessageId = lastMessageId;
+
+                    currentData = new DataSnapshot()
+                    {
+                        StartMessageId = data.GetFirstItemIndex(),
+                        Data = data.GetDataBlocks()
+                    };
                 }
             }
         }
@@ -289,20 +346,25 @@ namespace FastQueue.Server.Core
                     break;
                 }
 
-                lock (subscriptionsSync)
+                CleanupAction();
+            }
+        }
+
+        private void CleanupAction()
+        {
+            lock (subscriptionsSync)
+            {
+                if (subscriptions.Count == 0)
                 {
-                    if (subscriptions.Count == 0)
-                    {
-                        continue;
-                    }
+                    return;
+                }
 
-                    var firstNonCompletedId = subscriptions.Values.Min(x => x.CompletedMessageId) + 1;
+                var firstNonCompletedId = subscriptions.Values.Min(x => x.CompletedMessageId) + 1;
 
-                    if (lastFreeToId < firstNonCompletedId)
-                    {
-                        FreeTo(firstNonCompletedId);
-                        lastFreeToId = firstNonCompletedId;
-                    }
+                if (lastFreeToId < firstNonCompletedId)
+                {
+                    FreeTo(firstNonCompletedId);
+                    lastFreeToId = firstNonCompletedId;
                 }
             }
         }
@@ -314,20 +376,24 @@ namespace FastQueue.Server.Core
                 try
                 {
                     await Task.Delay(SubscriptionPointersFlushIntervalMilliseconds, cancellationToken);
-
-                    try
-                    {
-                        subscriptionPointersStorage.Flush();
-                    }
-                    catch
-                    {
-                        continue;
-                    }
                 }
                 catch (TaskCanceledException)
                 {
                     break;
                 }
+
+                SubscriptionPointersFlushAction();
+            }
+        }
+
+        private void SubscriptionPointersFlushAction()
+        {
+            try
+            {
+                subscriptionPointersStorage.Flush();
+            }
+            catch
+            {
             }
         }
 

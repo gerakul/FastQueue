@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core.Abstractions
 {
@@ -8,6 +9,6 @@ namespace FastQueue.Server.Core.Abstractions
     {
         void Restore();
         void Start();
-        void Stop();
+        Task Stop();
     }
 }

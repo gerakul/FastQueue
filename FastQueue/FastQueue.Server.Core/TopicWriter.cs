@@ -30,6 +30,7 @@ namespace FastQueue.Server.Core
         private object sync = new object();
         private bool disposed = false;
         private CancellationTokenSource cancellationTokenSource;
+        private Task<Task> confirmationLoopTask;
 
         internal TopicWriter(Topic topic, Func<PublisherAck, CancellationToken, Task> ackHandler)
         {
@@ -75,12 +76,13 @@ namespace FastQueue.Server.Core
 
         internal void StartConfirmationLoop()
         {
-            Task.Factory.StartNew(() => ConfirmationLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            confirmationLoopTask = Task.Factory.StartNew(() => ConfirmationLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
         }
 
-        internal void StopConfirmationLoop()
+        internal async Task StopConfirmationLoop()
         {
             cancellationTokenSource.Cancel();
+            await await confirmationLoopTask;
         }
 
         private async Task ConfirmationLoop(CancellationToken cancellationToken)
@@ -150,12 +152,12 @@ namespace FastQueue.Server.Core
             catch
             {
                 // this is ackHandler responsibility to worry about error handling
-                Dispose();
+                await DisposeAsync();
                 throw;
             }
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
             lock (sync)
             {
@@ -164,10 +166,11 @@ namespace FastQueue.Server.Core
                     return;
                 }
 
-                topic.DeleteWriter(this);
-                topic = null;
                 disposed = true;
             }
+
+            await topic.DeleteWriter(this);
+            topic = null;
         }
     }
 }

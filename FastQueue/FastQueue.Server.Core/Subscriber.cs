@@ -18,7 +18,10 @@ namespace FastQueue.Server.Core
         private long sentMessageId;
         private CancellationTokenSource cancellationTokenSource;
         private object sync = new object();
+        private bool disposing = false;
         private bool disposed = false;
+        private Task<Task> pushLoopTask;
+
 
         internal Subscriber(Subscription subscription, Func<ReadOnlyMemory<Message>, CancellationToken, Task> pushHandler, long completedMessageId,
             SubscriberOptions subscriberOptions)
@@ -34,12 +37,13 @@ namespace FastQueue.Server.Core
 
         internal void StartPushLoop()
         {
-            Task.Factory.StartNew(() => PushLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            pushLoopTask = Task.Factory.StartNew(() => PushLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
         }
 
-        internal void StopPushLoop()
+        internal async Task StopPushLoop()
         {
             cancellationTokenSource.Cancel();
+            await await pushLoopTask;
         }
 
         private async Task PushLoop(CancellationToken cancellationToken)
@@ -114,7 +118,7 @@ namespace FastQueue.Server.Core
             }
             catch
             {
-                Dispose();
+                await DisposeAsync();
                 throw;
             }
         }
@@ -149,16 +153,22 @@ namespace FastQueue.Server.Core
             }
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
             lock (sync)
             {
-                if (disposed)
+                if (disposing)
                 {
                     return;
                 }
 
-                subscription.DeleteSubscriber();
+                disposing = true;
+            }
+
+            await subscription.DeleteSubscriber();
+
+            lock (sync)
+            {
                 disposed = true;
             }
         }
