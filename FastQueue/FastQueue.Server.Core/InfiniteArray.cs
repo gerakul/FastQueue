@@ -128,8 +128,18 @@ namespace FastQueue.Server.Core
             }
 
             var prevFirstBusyBlockIndex = firstBusyBlockIndex;
-            firstBusyBlockIndex = blockInd;
-            firstItemIndexInBlock = indInBlock;
+
+
+            if (blockInd == data.Count && indInBlock == 0)
+            {
+                firstBusyBlockIndex = blockInd - 1;
+                firstItemIndexInBlock = blockLength;
+            }
+            else
+            {
+                firstBusyBlockIndex = blockInd;
+                firstItemIndexInBlock = indInBlock;
+            }
 
             if (prevFirstBusyBlockIndex != firstBusyBlockIndex)
             {
@@ -143,7 +153,15 @@ namespace FastQueue.Server.Core
 
             if (firstBusyBlockIndex == data.Count - 1)
             {
-                arr[0] = data[firstBusyBlockIndex].AsMemory(firstItemIndexInBlock, firstFreeIndexInBlock - firstItemIndexInBlock);
+                if (firstItemIndexInBlock == firstFreeIndexInBlock)
+                {
+                    arr[0] = ReadOnlyMemory<T>.Empty;
+                }
+                else
+                {
+                    arr[0] = data[firstBusyBlockIndex].AsMemory(firstItemIndexInBlock, firstFreeIndexInBlock - firstItemIndexInBlock);
+                }
+
                 return arr;
             }
 

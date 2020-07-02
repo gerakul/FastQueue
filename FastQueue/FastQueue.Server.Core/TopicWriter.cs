@@ -99,6 +99,8 @@ namespace FastQueue.Server.Core
                         {
                             await RunAckHandler(new PublisherAck(idToAck), cancellationToken);
                         }
+
+                        lastAckedMessageId = persistedMessageId;
                     }
 
                     await Task.Delay(ConfirmationIntervalMilliseconds, cancellationToken);
