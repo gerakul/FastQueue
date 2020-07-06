@@ -17,5 +17,6 @@ namespace FastQueue.Server.Core.Abstractions
         void CreateSubscription(string subscriptionName, long startReadingFromId);
         Task DeleteSubscription(string subscriptionName);
         bool SubscriptionExists(string subscriptionName);
+        string[] GetSubscriptions();
     }
 }

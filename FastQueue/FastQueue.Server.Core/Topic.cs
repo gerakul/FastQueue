@@ -39,6 +39,7 @@ namespace FastQueue.Server.Core
 
         internal long PersistedMessageId => persistedMessageId;
         internal DataSnapshot CurrentData => currentData;
+        public string Name => name;
 
         internal Topic(string name, IPersistentStorage persistentStorage, 
             ISubscriptionsConfigurationStorage subscriptionsConfigurationStorage,
@@ -70,7 +71,7 @@ namespace FastQueue.Server.Core
                 }
 
                 var ind = data.Add(newMessages);
-                persistentStorage.Write(newMessages.AsSpan());
+                persistentStorage.Write(newMessages);
                 lastMessageId += messages.Length;
                 return new TopicWriteResult(ind, enqueuedTime);
             }
@@ -95,7 +96,7 @@ namespace FastQueue.Server.Core
             subscriptionPointersFlushLoopTask = Task.Factory.StartNew(() => SubscriptionPointersFlushLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
         }
 
-        public async Task Stop()
+        public async Task Stop(bool checkForSubscriptions)
         {
             List<TopicWriter> writersList;
             List<Subscription> subscriptionsList;
@@ -105,6 +106,11 @@ namespace FastQueue.Server.Core
                 {
                     stopping = true;
                     subscriptionsList = subscriptions.Values.ToList();
+
+                    if (checkForSubscriptions && subscriptionsList.Count > 0)
+                    {
+                        throw new TopicManagementException($"Cannot stop topic with subscriptions");
+                    }
                 }
 
                 writersList = writers.ToList();
@@ -129,6 +135,9 @@ namespace FastQueue.Server.Core
             PersistenceAction();
             CleanupAction();
             SubscriptionPointersFlushAction();
+
+            persistentStorage.Dispose();
+            subscriptionPointersStorage.Dispose();
         }
 
         public void Restore()
@@ -236,6 +245,14 @@ namespace FastQueue.Server.Core
             lock (subscriptionsSync)
             {
                 return subscriptions.ContainsKey(subscriptionName);
+            }
+        }
+
+        public string[] GetSubscriptions()
+        {
+            lock (subscriptionsSync)
+            {
+                return subscriptions.Keys.ToArray();
             }
         }
 

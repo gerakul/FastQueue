@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
@@ -25,22 +26,33 @@ namespace FastQueue.Server.Core
         {
             var persistentStorage = new FilePersistentStorage(new FilePersistentStorageOptions
             {
-                DirectoryPath = Path.Combine(directoryPath, name),
+                DirectoryPath = GetTopicDirectoryPath(name),
                 FileLengthThreshold = persistentStorageFileLengthThreshold
             });
 
             var subscriptionsConfigurationStorage = new SubscriptionsConfigurationFileStorage(new SubscriptionsConfigurationFileStorageOptions
             {
-                DirectoryPath = Path.Combine(directoryPath, name)
+                DirectoryPath = GetTopicDirectoryPath(name)
             });
 
             var subscriptionPointersStorage = new SubscriptionPointersFileStorage(new SubscriptionPointersFileStorageOptions
             { 
-                DirectoryPath = Path.Combine(directoryPath, name),
+                DirectoryPath = GetTopicDirectoryPath(name),
                 FileLengthThreshold = subscriptionPointersStorageFileLengthThreshold
             });
 
             return new Topic(name, persistentStorage, subscriptionsConfigurationStorage, subscriptionPointersStorage, topicOptions);
+        }
+
+        public void DeleteTopic(ITopicManagement topic)
+        {
+            var path = GetTopicDirectoryPath(topic.Name);
+            Directory.Delete(path, true);
+        }
+
+        private string GetTopicDirectoryPath(string topicName)
+        {
+            return Path.Combine(directoryPath, topicName);
         }
     }
 

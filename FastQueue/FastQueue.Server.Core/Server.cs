@@ -60,7 +60,7 @@ namespace FastQueue.Server.Core
 
             foreach (var item in topicsList)
             {
-                await item.Stop();
+                await item.Stop(false);
             }
         }
 
@@ -89,6 +89,29 @@ namespace FastQueue.Server.Core
             topic.Start();
         }
 
+        public async Task DeleteTopic(string name, bool deleteSubscriptions = false)
+        {
+            ITopicManagement topic;
+            lock (sync)
+            {
+                if (stopping)
+                {
+                    throw new TopicManagementException($"Cannot delete topic when server is stopping");
+                }
+
+                topic = GetTopicInternal(name);
+            }
+
+            await topic.Stop(!deleteSubscriptions);
+            topicFactory.DeleteTopic(topic);
+
+            lock (sync)
+            {
+                topics.Remove(name);
+                UpdateTopicsConfiguration();
+            }
+        }
+
         public ITopic GetTopic(string name)
         {
             lock (sync)
@@ -98,13 +121,18 @@ namespace FastQueue.Server.Core
                     throw new TopicManagementException($"Cannot get topic when server is stopping");
                 }
 
-                if (!topics.TryGetValue(name, out var topic))
-                {
-                    throw new TopicManagementException($"Topic {name} does not exist");
-                }
-
-                return topic;
+                return GetTopicInternal(name);
             }
+        }
+
+        private ITopicManagement GetTopicInternal(string name)
+        {
+            if (!topics.TryGetValue(name, out var topic))
+            {
+                throw new TopicManagementException($"Topic {name} does not exist");
+            }
+
+            return topic;
         }
 
         private void UpdateTopicsConfiguration()

@@ -7,5 +7,6 @@ namespace FastQueue.Server.Core.Abstractions
     public interface ITopicFactory
     {
         ITopicManagement CreateTopic(string name);
+        void DeleteTopic(ITopicManagement topic);
     }
 }

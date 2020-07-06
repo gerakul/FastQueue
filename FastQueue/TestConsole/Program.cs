@@ -36,7 +36,7 @@ namespace TestConsole
                 SubscriptionPointersStorageFileLengthThreshold = 10 * 1024 * 1024,
                 TopicOptions = new TopicOptions
                 {
-                    PersistenceIntervalMilliseconds = 50,
+                    PersistenceIntervalMilliseconds = 100,
                     DataArrayOptions = new InfiniteArrayOptions
                     {
                         BlockLength = 100000,
@@ -56,6 +56,7 @@ namespace TestConsole
 
             string topicName = "topic1";
 
+            //await server.DeleteTopic(topicName, true);
             //server.CreateNewTopic(topicName);
 
             var writerTask = Task.Factory.StartNew(() => WriterLoop(topicName), TaskCreationOptions.LongRunning);
@@ -76,8 +77,8 @@ namespace TestConsole
             Console.WriteLine("After WhenAll");
 
             await sub1.DisposeAsync();
-            //sub2.Dispose();
-            //sub3.Dispose();
+            //await sub2.DisposeAsync();
+            //await sub3.DisposeAsync();
 
             await server.Stop();
         }
@@ -135,7 +136,10 @@ namespace TestConsole
                     {
                         if (prevId > 0 && msgs[i].ID - 1 != prevId)
                         {
+                            Console.BackgroundColor = ConsoleColor.Cyan;
+                            Console.ForegroundColor = ConsoleColor.Red;
                             Console.WriteLine($"{subName}: Missing {prevId} - {msgs[i].ID}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+                            Console.ResetColor();
                         }
 
                         prevId = msgs[i].ID;
