@@ -37,6 +37,9 @@ namespace TestConsole
                 TopicOptions = new TopicOptions
                 {
                     PersistenceIntervalMilliseconds = 100,
+                    PersistenceMaxFails = 100,
+                    CleanupMaxFails = 10000,
+                    SubscriptionPointersFlushMaxFails = 500,
                     DataArrayOptions = new InfiniteArrayOptions
                     {
                         BlockLength = 100000,
@@ -67,18 +70,14 @@ namespace TestConsole
             //server.GetTopic(topicName).DeleteSubscription("sub3");
 
             var sub1 = Read(topicName, "sub1");
-            //var sub2 = Read(topicName, "sub2");
-            //var sub3 = Read(topicName, "sub3");
+            var sub2 = Read(topicName, "sub2");
+            var sub3 = Read(topicName, "sub3");
 
-            Console.WriteLine("Before WhenAll");
+            Console.WriteLine("Before await writerTask");
 
             await await writerTask;
 
-            Console.WriteLine("After WhenAll");
-
-            await sub1.DisposeAsync();
-            //await sub2.DisposeAsync();
-            //await sub3.DisposeAsync();
+            Console.WriteLine("After await writerTask");
 
             await server.Stop();
         }

@@ -26,12 +26,18 @@ namespace FastQueue.Server.Core
         private readonly InfiniteArrayOptions dataArrayOptions;
         private long persistedMessageId;
         private int persistenceIntervalMilliseconds;
+        private int persistenceMaxFails;
+        private int cleanupMaxFails;
+        private int subscriptionPointersFlushMaxFails;
         private object dataSync = new object();
         private object writersSync = new object();
         private object subscriptionsSync = new object();
         private CancellationTokenSource cancellationTokenSource;
         private DataSnapshot currentData;
         private long lastFreeToId;
+        private int persistenceFails;
+        private int cleanupFails;
+        private int subscriptionPointersFlushFails;
         private bool stopping;
         private Task<Task> persistenceLoopTask;
         private Task<Task> cleanupLoopTask;
@@ -51,12 +57,18 @@ namespace FastQueue.Server.Core
             this.subscriptionsConfigurationStorage = subscriptionsConfigurationStorage;
             this.subscriptionPointersStorage = subscriptionPointersStorage;
             persistenceIntervalMilliseconds = topicOptions.PersistenceIntervalMilliseconds;
+            persistenceMaxFails = topicOptions.PersistenceMaxFails;
+            cleanupMaxFails = topicOptions.CleanupMaxFails;
+            subscriptionPointersFlushMaxFails = topicOptions.SubscriptionPointersFlushMaxFails;
             dataArrayOptions = new InfiniteArrayOptions(topicOptions.DataArrayOptions);
             writers = new HashSet<TopicWriter>();
             subscriptions = new Dictionary<string, Subscription>();
             cancellationTokenSource = new CancellationTokenSource();
             lastFreeToId = 1;
             stopping = false;
+            persistenceFails = 0;
+            cleanupFails = 0;
+            subscriptionPointersFlushFails = 0;
         }
 
         internal TopicWriteResult Write(ReadOnlySpan<ReadOnlyMemory<byte>> messages)
@@ -320,7 +332,20 @@ namespace FastQueue.Server.Core
                     break;
                 }
 
-                PersistenceAction();
+                try
+                {
+                    PersistenceAction();
+                    persistenceFails = 0;
+                }
+                catch
+                {
+                    if ((++persistenceFails) >= persistenceMaxFails)
+                    {
+                        TaskHelper.FireAndForget(async () => await Stop(false));
+                        // ::: logging instead of throwing
+                        throw;
+                    }
+                }
             }
         }
 
@@ -363,7 +388,20 @@ namespace FastQueue.Server.Core
                     break;
                 }
 
-                CleanupAction();
+                try
+                {
+                    CleanupAction();
+                    cleanupFails = 0;
+                }
+                catch
+                {
+                    if ((++cleanupFails) >= cleanupMaxFails)
+                    {
+                        TaskHelper.FireAndForget(async () => await Stop(false));
+                        // ::: logging instead of throwing
+                        throw;
+                    }
+                }
             }
         }
 
@@ -399,19 +437,26 @@ namespace FastQueue.Server.Core
                     break;
                 }
 
-                SubscriptionPointersFlushAction();
+                try
+                {
+                    SubscriptionPointersFlushAction();
+                    subscriptionPointersFlushFails = 0;
+                }
+                catch
+                {
+                    if ((++subscriptionPointersFlushFails) >= subscriptionPointersFlushMaxFails)
+                    {
+                        TaskHelper.FireAndForget(async () => await Stop(false));
+                        // ::: logging instead of throwing
+                        throw;
+                    }
+                }
             }
         }
 
         private void SubscriptionPointersFlushAction()
         {
-            try
-            {
-                subscriptionPointersStorage.Flush();
-            }
-            catch
-            {
-            }
+            subscriptionPointersStorage.Flush();
         }
 
         private Dictionary<Guid, long> GetCurrentCompletedIds()
@@ -435,6 +480,9 @@ namespace FastQueue.Server.Core
     public class TopicOptions
     {
         public int PersistenceIntervalMilliseconds { get; set; } = 50;
+        public int PersistenceMaxFails { get; set; } = 100;
+        public int CleanupMaxFails { get; set; } = 10000;
+        public int SubscriptionPointersFlushMaxFails { get; set; } = 500;
         public InfiniteArrayOptions DataArrayOptions { get; set; } = new InfiniteArrayOptions();
 
         public TopicOptions()
@@ -444,6 +492,9 @@ namespace FastQueue.Server.Core
         public TopicOptions(TopicOptions options)
         {
             PersistenceIntervalMilliseconds = options.PersistenceIntervalMilliseconds;
+            PersistenceMaxFails = options.PersistenceMaxFails;
+            CleanupMaxFails = options.CleanupMaxFails;
+            SubscriptionPointersFlushMaxFails = options.SubscriptionPointersFlushMaxFails;
             DataArrayOptions = new InfiniteArrayOptions(options.DataArrayOptions);
         }
     }

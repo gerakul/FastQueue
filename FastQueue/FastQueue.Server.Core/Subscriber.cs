@@ -118,7 +118,8 @@ namespace FastQueue.Server.Core
             }
             catch
             {
-                await DisposeAsync();
+                TaskHelper.FireAndForget(async () => await DisposeAsync());
+                // ::: logging instead of throwing
                 throw;
             }
         }

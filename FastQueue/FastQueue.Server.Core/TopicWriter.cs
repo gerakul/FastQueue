@@ -109,6 +109,13 @@ namespace FastQueue.Server.Core
                 {
                     break;
                 }
+                catch
+                {
+                    // this is ackHandler responsibility to worry about error handling
+                    TaskHelper.FireAndForget(async () => await DisposeAsync());
+                    // ::: logging instead of throwing
+                    throw;
+                }
             }
         }
 
@@ -147,16 +154,7 @@ namespace FastQueue.Server.Core
 
         private async Task RunAckHandler(PublisherAck ack, CancellationToken cancellationToken)
         {
-            try
-            {
-                await ackHandler(ack, cancellationToken).ConfigureAwait(false);
-            }
-            catch
-            {
-                // this is ackHandler responsibility to worry about error handling
-                await DisposeAsync();
-                throw;
-            }
+            await ackHandler(ack, cancellationToken).ConfigureAwait(false);
         }
 
         public async ValueTask DisposeAsync()
