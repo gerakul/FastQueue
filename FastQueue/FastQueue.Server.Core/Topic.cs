@@ -182,7 +182,7 @@ namespace FastQueue.Server.Core
             RestoreSubscriptions();
         }
 
-        public ITopicWriter CreateWriter(Func<PublisherAck, CancellationToken, Task> ackHandler)
+        public ITopicWriter CreateWriter(Func<PublisherAck, CancellationToken, Task> ackHandler, TopicWriterOptions topicWriterOptions = null)
         {
             lock (writersSync)
             {
@@ -191,7 +191,7 @@ namespace FastQueue.Server.Core
                     throw new TopicManagementException($"Cannot create Writer when topic {name} is being stopped");
                 }
 
-                var writer = new TopicWriter(this, ackHandler);
+                var writer = new TopicWriter(this, ackHandler, topicWriterOptions ?? new TopicWriterOptions());
                 writers.Add(writer);
                 writer.StartConfirmationLoop();
                 return writer;

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
-    public class Subscriber : ISubscriber
+    internal class Subscriber : ISubscriber
     {
         private readonly Subscription subscription;
         private readonly Topic topic;
@@ -53,17 +53,21 @@ namespace FastQueue.Server.Core
                 try
                 {
                     var persistedMessageId = topic.PersistedMessageId;
+                    var dataSent = false;
                     if (persistedMessageId > sentMessageId)
                     {
                         var dataSnapshot = topic.CurrentData;
 
                         if (dataSnapshot != null)
                         {
-                            await Push(dataSnapshot.Data, dataSnapshot.StartMessageId, cancellationToken);
+                            dataSent = await Push(dataSnapshot.Data, dataSnapshot.StartMessageId, cancellationToken);
                         }
                     }
 
-                    await Task.Delay(pushIntervalMilliseconds, cancellationToken);
+                    if (!dataSent)
+                    {
+                        await Task.Delay(pushIntervalMilliseconds, cancellationToken);
+                    }
                 }
                 catch (TaskCanceledException)
                 {
@@ -72,7 +76,7 @@ namespace FastQueue.Server.Core
             }
         }
 
-        private async Task Push(ReadOnlyMemory<Message>[] data, long startMessageId, CancellationToken cancellationToken)
+        private async Task<bool> Push(ReadOnlyMemory<Message>[] data, long startMessageId, CancellationToken cancellationToken)
         {
             try
             {
@@ -110,10 +114,16 @@ namespace FastQueue.Server.Core
                     long calculatedSentId = sentMessageId + sentCount;
                     sentMessageId = data[^1].Span[^1].ID;
                     // should never happen
-                    if (sentMessageId != calculatedSentId)
+                    if (sentMessageId != calculatedSentId && !cancellationToken.IsCancellationRequested)
                     {
-                        throw new FatalException($"Offset doesn't match ID");
+                        throw new FatalException($"Offset {calculatedSentId} doesn't match ID {sentMessageId}");
                     }
+
+                    return true;
+                }
+                else
+                {
+                    return false;
                 }
             }
             catch

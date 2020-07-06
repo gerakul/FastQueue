@@ -99,6 +99,9 @@ namespace TestConsole
             {
                 Console.WriteLine($"Confirmed {ack.SequenceNumber}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
                 await Task.CompletedTask;
+            }, new TopicWriterOptions 
+            { 
+                ConfirmationIntervalMilliseconds = 50 
             });
 
             for (int i = 0; i < 1_000_000; i++)
@@ -108,7 +111,7 @@ namespace TestConsole
                 writer.Write(new WriteRequest(i, m));
             }
 
-            await Task.Delay(2000);
+            await Task.Delay(10000);
 
             await writer.DisposeAsync();
         }
@@ -156,7 +159,7 @@ namespace TestConsole
                 await Task.CompletedTask;
             }, new SubscriberOptions
             {
-                MaxMessagesInBatch = 10000,
+                MaxMessagesInBatch = 100000,
                 PushIntervalMilliseconds = 50
             });
 

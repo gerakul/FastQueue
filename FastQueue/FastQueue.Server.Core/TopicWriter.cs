@@ -9,8 +9,6 @@ namespace FastQueue.Server.Core
 {
     internal class TopicWriter : ITopicWriter
     {
-        private const int ConfirmationIntervalMilliseconds = 50;
-
         private readonly struct IdPair
         {
             public readonly long WriterID;
@@ -25,6 +23,7 @@ namespace FastQueue.Server.Core
 
         private Topic topic;
         private Func<PublisherAck, CancellationToken, Task> ackHandler;
+        private int confirmationIntervalMilliseconds;
         private InfiniteArray<IdPair> idMap;
         private long lastAckedMessageId;
         private object sync = new object();
@@ -32,10 +31,11 @@ namespace FastQueue.Server.Core
         private CancellationTokenSource cancellationTokenSource;
         private Task<Task> confirmationLoopTask;
 
-        internal TopicWriter(Topic topic, Func<PublisherAck, CancellationToken, Task> ackHandler)
+        internal TopicWriter(Topic topic, Func<PublisherAck, CancellationToken, Task> ackHandler, TopicWriterOptions topicWriterOptions)
         {
             this.topic = topic;
             this.ackHandler = ackHandler;
+            confirmationIntervalMilliseconds = topicWriterOptions.ConfirmationIntervalMilliseconds;
             lastAckedMessageId = -1;
             cancellationTokenSource = new CancellationTokenSource();
             idMap = new InfiniteArray<IdPair>(0, new InfiniteArrayOptions
@@ -103,7 +103,7 @@ namespace FastQueue.Server.Core
                         lastAckedMessageId = persistedMessageId;
                     }
 
-                    await Task.Delay(ConfirmationIntervalMilliseconds, cancellationToken);
+                    await Task.Delay(confirmationIntervalMilliseconds, cancellationToken);
                 }
                 catch (TaskCanceledException)
                 {
@@ -173,4 +173,19 @@ namespace FastQueue.Server.Core
             topic = null;
         }
     }
+
+    public class TopicWriterOptions
+    {
+        public int ConfirmationIntervalMilliseconds { get; set; } = 50;
+
+        public TopicWriterOptions()
+        {
+        }
+
+        public TopicWriterOptions(TopicWriterOptions options)
+        {
+            ConfirmationIntervalMilliseconds = options.ConfirmationIntervalMilliseconds;
+        }
+    }
+
 }
