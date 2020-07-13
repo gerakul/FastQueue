@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\FastQueue.Client\FastQueue.Client.csproj" />
     <ProjectReference Include="..\FastQueue.Server.Core\FastQueue.Server.Core.csproj" />
   </ItemGroup>
 

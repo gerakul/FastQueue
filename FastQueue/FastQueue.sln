@@ -5,7 +5,16 @@ VisualStudioVersion = 16.0.30002.166
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestConsole", "TestConsole\TestConsole.csproj", "{B191E5BD-CE15-40D1-A267-6ABA326926BD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastQueue.Server.Core", "FastQueue.Server.Core\FastQueue.Server.Core.csproj", "{F2CF3375-EF48-4985-BC4E-0955922A0E36}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastQueue.Server.Core", "FastQueue.Server.Core\FastQueue.Server.Core.csproj", "{F2CF3375-EF48-4985-BC4E-0955922A0E36}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ProtoFiles", "ProtoFiles", "{975B3A61-CEB5-4D61-91C1-5A840173C65E}"
+	ProjectSection(SolutionItems) = preProject
+		FastQueueService.proto = FastQueueService.proto
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastQueue.Server.Grpc", "FastQueue.Server.Grpc\FastQueue.Server.Grpc.csproj", "{415BA1E2-4EC1-47F7-9B5E-8616CD60BE75}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastQueue.Client", "FastQueue.Client\FastQueue.Client.csproj", "{610A0B83-5733-4AE1-8F28-A15FF4FD9D2A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +30,14 @@ Global
 		{F2CF3375-EF48-4985-BC4E-0955922A0E36}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F2CF3375-EF48-4985-BC4E-0955922A0E36}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F2CF3375-EF48-4985-BC4E-0955922A0E36}.Release|Any CPU.Build.0 = Release|Any CPU
+		{415BA1E2-4EC1-47F7-9B5E-8616CD60BE75}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{415BA1E2-4EC1-47F7-9B5E-8616CD60BE75}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{415BA1E2-4EC1-47F7-9B5E-8616CD60BE75}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{415BA1E2-4EC1-47F7-9B5E-8616CD60BE75}.Release|Any CPU.Build.0 = Release|Any CPU
+		{610A0B83-5733-4AE1-8F28-A15FF4FD9D2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{610A0B83-5733-4AE1-8F28-A15FF4FD9D2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{610A0B83-5733-4AE1-8F28-A15FF4FD9D2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{610A0B83-5733-4AE1-8F28-A15FF4FD9D2A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,4 +1,5 @@
-﻿using FastQueue.Server.Core;
+﻿using FastQueue.Client;
+using FastQueue.Server.Core;
 using FastQueue.Server.Core.Abstractions;
 using FastQueue.Server.Core.Model;
 using System;
@@ -21,10 +22,39 @@ namespace TestConsole
             //await InfiniteArrayTest();
             //await TopicPerformance();
             //await TopicTest();
-            await ServerTest();
+            //await ServerTest();
+
+            await ClientTest();
 
             Console.WriteLine("end");
             await Task.CompletedTask;
+        }
+
+        static async Task ClientTest()
+        {
+            for (int i = 0; i < 10000; i++)
+            {
+                try
+                {
+                    var fastQueueClientOptions = new FastQueueClientOptions
+                    {
+                        ServerUrl = @"https://localhost:5001"
+                    };
+
+                    using var client = new FastQueueClient(fastQueueClientOptions);
+
+                    var s = await client.CreateTopic("qqq", default);
+
+                    Console.WriteLine($"{i}: {s}");
+
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+
+                await Task.Delay(1000);
+            }
         }
 
         static async Task ServerTest()

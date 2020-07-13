@@ -1,0 +1,15 @@
+﻿syntax = "proto3";
+
+package FastQueueService;
+
+service FastQueueService {
+  rpc CreateTopic (CreateTopicRequest) returns (CreateTopicReply) {}
+}
+
+message CreateTopicRequest {
+  string Name = 1;
+}
+
+message CreateTopicReply {
+  string Name = 1;
+}
