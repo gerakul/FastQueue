@@ -8,12 +8,12 @@ using System.Text.Json;
 
 namespace FastQueue.Server.Core
 {
-    internal class TopicsConfigurationFileStorage : ITopicsConfigurationStorage
+    public class TopicsConfigurationFileStorage : ITopicsConfigurationStorage
     {
         private readonly string configFile;
         private readonly string configFileNew;
 
-        internal TopicsConfigurationFileStorage(TopicsConfigurationFileStorageOptions options)
+        public TopicsConfigurationFileStorage(TopicsConfigurationFileStorageOptions options)
         {
             configFile = options.ConfigurationFile;
             configFileNew = Path.Combine(Path.GetDirectoryName(configFile), 

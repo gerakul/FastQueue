@@ -43,7 +43,7 @@ namespace TestConsole
 
                     using var client = new FastQueueClient(fastQueueClientOptions);
 
-                    var s = await client.CreateTopic("qqq", default);
+                    var s = await client.CreateTopic("topic1", default);
 
                     Console.WriteLine($"{i}: {s}");
 

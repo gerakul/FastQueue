@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace FastQueue.Server.Core
 {
-    public class Server
+    public class Server : IServer
     {
         private readonly ITopicFactory topicFactory;
         private readonly ITopicsConfigurationStorage topicsConfigurationStorage;

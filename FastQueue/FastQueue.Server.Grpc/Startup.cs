@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using FastQueue.Server.Core;
+using FastQueue.Server.Core.Abstractions;
 using FastQueue.Server.Grpc.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -22,7 +20,38 @@ namespace FastQueue.Server.Grpc
                 logging.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Information);
             });
 
-            services.AddSingleton(new FastQueueServiceImpl());
+            // ::: get from config file
+            var topicFactory = new FileTopicFactory(new TopicFactoryOptions
+            {
+                DirectoryPath = @"C:\temp\storage",
+                PersistentStorageFileLengthThreshold = 100 * 1024 * 1024,
+                SubscriptionPointersStorageFileLengthThreshold = 10 * 1024 * 1024,
+                TopicOptions = new TopicOptions
+                {
+                    PersistenceIntervalMilliseconds = 100,
+                    PersistenceMaxFails = 100,
+                    CleanupMaxFails = 10000,
+                    SubscriptionPointersFlushMaxFails = 500,
+                    DataArrayOptions = new InfiniteArrayOptions
+                    {
+                        BlockLength = 100000,
+                        DataListCapacity = 128,
+                        MinimumFreeBlocks = 20
+                    }
+                }
+            });
+
+            var topicsConfigStorage = new TopicsConfigurationFileStorage(new TopicsConfigurationFileStorageOptions
+            {
+                ConfigurationFile = @"C:\temp\storage\Topics.json"
+            });
+
+            var server = new Core.Server(topicFactory, topicsConfigStorage);
+
+            services.AddSingleton<IServer>(server);
+
+            services.AddSingleton<FastQueueServiceImpl>();
+            services.AddHostedService<FastQueueCoreServer>();
 
             services.AddGrpc();
         }
