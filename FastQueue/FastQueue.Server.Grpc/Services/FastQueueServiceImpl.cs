@@ -19,8 +19,30 @@ namespace FastQueue.Server.Grpc.Services
 
         public override Task<CreateTopicReply> CreateTopic(CreateTopicRequest request, ServerCallContext context)
         {
-            var topic = server.GetTopic(request.Name);
-            return Task.FromResult(new CreateTopicReply { Name = topic.GetSubscriptions().FirstOrDefault() });
+            server.CreateNewTopic(request.Name);
+            return Task.FromResult(new CreateTopicReply());
+        }
+
+        public override async Task Publish(IAsyncStreamReader<WriteRequest> requestStream, IServerStreamWriter<PublisherAck> responseStream, ServerCallContext context)
+        {
+            if (!(await requestStream.MoveNext(context.CancellationToken)))
+            {
+                return;
+            }
+
+            var topic = server.GetTopic(requestStream.Current.TopicName);
+            await using var writer = topic.CreateWriter((ack, ct) => responseStream.WriteAsync(new PublisherAck { SequenceNumber = ack.SequenceNumber }),
+                new Core.TopicWriterOptions
+                {
+                    // ::: from config
+                    ConfirmationIntervalMilliseconds = 100
+                });
+
+            while (await requestStream.MoveNext(context.CancellationToken))
+            {
+                // ::: change ToByteArray on Memory when available
+                writer.Write(new Core.Model.WriteRequest(requestStream.Current.SequenceNumber, requestStream.Current.Message.ToByteArray()));
+            }
         }
     }
 }

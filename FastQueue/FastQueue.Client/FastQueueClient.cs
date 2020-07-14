@@ -1,4 +1,5 @@
-﻿using Grpc.Net.Client;
+﻿using FastQueue.Client.Abstractions;
+using Grpc.Net.Client;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -18,10 +19,18 @@ namespace FastQueue.Client
             grpcClient = new FastQueueService.FastQueueService.FastQueueServiceClient(channel);
         }
 
-        public async Task<string> CreateTopic(string name, CancellationToken cancellationToken)
+        public async Task CreateTopic(string name, CancellationToken cancellationToken)
         {
-            var reply = await grpcClient.CreateTopicAsync(new FastQueueService.CreateTopicRequest { Name = name }, cancellationToken: cancellationToken);
-            return reply.Name;
+            await grpcClient.CreateTopicAsync(new FastQueueService.CreateTopicRequest { Name = name }, cancellationToken: cancellationToken);
+        }
+
+        public async Task<IPublisher> CreatePublisher(string topicName, Action<long> ackHandler)
+        {
+            var duplexStream = grpcClient.Publish();
+            await duplexStream.RequestStream.WriteAsync(new FastQueueService.WriteRequest { TopicName = topicName });
+            var publisher = new Publisher(duplexStream, ackHandler);
+            publisher.StartAckLoop();
+            return publisher;
         }
 
         public void Dispose()

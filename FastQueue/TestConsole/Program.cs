@@ -24,10 +24,48 @@ namespace TestConsole
             //await TopicTest();
             //await ServerTest();
 
-            await ClientTest();
+            //await ClientTest();
+            await PublishTest();
 
             Console.WriteLine("end");
             await Task.CompletedTask;
+        }
+
+        static async Task PublishTest()
+        {
+            string topicName = "topic1";
+
+            var rnd = new Random(DateTimeOffset.UtcNow.Millisecond);
+            var messages = new byte[1000][];
+            for (int i = 0; i < messages.Length; i++)
+            {
+                byte[] arr = new byte[100];
+                rnd.NextBytes(arr);
+                messages[i] = arr;
+            }
+
+            var fastQueueClientOptions = new FastQueueClientOptions
+            {
+                ServerUrl = @"https://localhost:5001"
+            };
+
+            using var client = new FastQueueClient(fastQueueClientOptions);
+            await using var publisher = await client.CreatePublisher(topicName, ack =>
+            {
+                Console.WriteLine($"Ack: {ack}, {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+            });
+
+            Console.WriteLine($"Start: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+
+            for (int i = 0; i < 100000; i++)
+            {
+                var m = messages[i % messages.Length];
+                await publisher.Publish(m);
+            }
+
+            await Task.Delay(2000);
+
+            Console.WriteLine($"End");
         }
 
         static async Task ClientTest()
@@ -43,9 +81,9 @@ namespace TestConsole
 
                     using var client = new FastQueueClient(fastQueueClientOptions);
 
-                    var s = await client.CreateTopic("topic1", default);
+                    await client.CreateTopic("topic1", default);
 
-                    Console.WriteLine($"{i}: {s}");
+                    Console.WriteLine($"{i}: ");
 
                 }
                 catch (Exception ex)
