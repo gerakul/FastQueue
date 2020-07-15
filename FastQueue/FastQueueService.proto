@@ -5,6 +5,7 @@ package FastQueueService;
 service FastQueueService {
   rpc CreateTopic (CreateTopicRequest) returns (CreateTopicReply) {}
   rpc Publish (stream WriteRequest) returns (stream PublisherAck) {}
+  rpc PublishMany (stream WriteManyRequest) returns (stream PublisherAck) {}
 }
 
 message CreateTopicRequest {
@@ -17,6 +18,12 @@ message CreateTopicReply {
 message WriteRequest {
   int64 SequenceNumber = 1;
   bytes Message = 2;
+  string TopicName = 3;
+}
+
+message WriteManyRequest {
+  int64 SequenceNumber = 1;
+  repeated bytes Messages = 2;
   string TopicName = 3;
 }
 

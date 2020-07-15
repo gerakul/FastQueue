@@ -26,6 +26,7 @@ namespace TestConsole
 
             //await ClientTest();
             await PublishTest();
+            //await PublishManyTest();
 
             Console.WriteLine("end");
             await Task.CompletedTask;
@@ -61,6 +62,43 @@ namespace TestConsole
             {
                 var m = messages[i % messages.Length];
                 await publisher.Publish(m);
+            }
+
+            await Task.Delay(2000);
+
+            Console.WriteLine($"End");
+        }
+
+        static async Task PublishManyTest()
+        {
+            string topicName = "topic1";
+
+            var rnd = new Random(DateTimeOffset.UtcNow.Millisecond);
+            var messages = new byte[1000][];
+            for (int i = 0; i < messages.Length; i++)
+            {
+                byte[] arr = new byte[100];
+                rnd.NextBytes(arr);
+                messages[i] = arr;
+            }
+
+            var fastQueueClientOptions = new FastQueueClientOptions
+            {
+                ServerUrl = @"https://localhost:5001"
+            };
+
+            using var client = new FastQueueClient(fastQueueClientOptions);
+            await using var publisher = await client.CreatePublisherMany(topicName, ack =>
+            {
+                Console.WriteLine($"Ack: {ack}, {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+            });
+
+            Console.WriteLine($"Start: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+
+            for (int i = 0; i < 1000; i++)
+            {
+                var m = messages[i % messages.Length];
+                await publisher.Publish(messages.Take(100).Select(x => new ReadOnlyMemory<byte>(x)));
             }
 
             await Task.Delay(2000);

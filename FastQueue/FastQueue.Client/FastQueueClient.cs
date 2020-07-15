@@ -33,6 +33,15 @@ namespace FastQueue.Client
             return publisher;
         }
 
+        public async Task<IPublisherMany> CreatePublisherMany(string topicName, Action<long> ackHandler)
+        {
+            var duplexStream = grpcClient.PublishMany();
+            await duplexStream.RequestStream.WriteAsync(new FastQueueService.WriteManyRequest { TopicName = topicName });
+            var publisher = new PublisherMany(duplexStream, ackHandler);
+            publisher.StartAckLoop();
+            return publisher;
+        }
+
         public void Dispose()
         {
             channel?.Dispose();

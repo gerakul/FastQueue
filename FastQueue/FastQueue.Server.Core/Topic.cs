@@ -77,9 +77,9 @@ namespace FastQueue.Server.Core
             {
                 var enqueuedTime = DateTime.UtcNow;
                 var newMessages = new Message[messages.Length];
-                for (int i = 1; i <= newMessages.Length; i++)
+                for (int i = 0; i < newMessages.Length; i++)
                 {
-                    newMessages[i] = new Message(lastMessageId + i, enqueuedTime, messages[i]);
+                    newMessages[i] = new Message(lastMessageId + i + 1, enqueuedTime, messages[i]);
                 }
 
                 var ind = data.Add(newMessages);
