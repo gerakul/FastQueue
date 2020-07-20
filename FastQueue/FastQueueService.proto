@@ -4,6 +4,9 @@ package FastQueueService;
 
 service FastQueueService {
   rpc CreateTopic (CreateTopicRequest) returns (CreateTopicReply) {}
+  rpc DeleteTopic (DeleteTopicRequest) returns (DeleteTopicReply) {}
+  rpc CreateSubscription (CreateSubscriptionRequest) returns (CreateSubscriptionReply) {}
+  rpc DeleteSubscription (DeleteSubscriptionRequest) returns (DeleteSubscriptionReply) {}
   rpc Publish (stream WriteRequest) returns (stream PublisherAck) {}
   rpc PublishMany (stream WriteManyRequest) returns (stream PublisherAck) {}
   rpc Subscribe (stream CompleteRequest) returns (stream Messages) {}
@@ -14,6 +17,30 @@ message CreateTopicRequest {
 }
 
 message CreateTopicReply {
+}
+
+message DeleteTopicRequest {
+  string Name = 1;
+  bool DeleteSubscriptions = 2;
+}
+
+message DeleteTopicReply {
+}
+
+message CreateSubscriptionRequest {
+  string TopicName = 1;
+  string SubscriptionName = 2;
+}
+
+message CreateSubscriptionReply {
+}
+
+message DeleteSubscriptionRequest {
+  string TopicName = 1;
+  string SubscriptionName = 2;
+}
+
+message DeleteSubscriptionReply {
 }
 
 message WriteRequest {

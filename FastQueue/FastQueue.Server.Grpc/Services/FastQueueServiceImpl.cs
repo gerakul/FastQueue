@@ -1,5 +1,6 @@
 ﻿using FastQueue.Server.Core.Abstractions;
 using FastQueue.Server.Core.Model;
+using FastQueueService;
 using Grpc.Core;
 using System;
 using System.Collections.Generic;
@@ -21,6 +22,26 @@ namespace FastQueue.Server.Grpc.Services
         {
             server.CreateNewTopic(request.Name);
             return Task.FromResult(new FastQueueService.CreateTopicReply());
+        }
+
+        public override async Task<DeleteTopicReply> DeleteTopic(DeleteTopicRequest request, ServerCallContext context)
+        {
+            await server.DeleteTopic(request.Name, request.DeleteSubscriptions);
+            return new FastQueueService.DeleteTopicReply();
+        }
+
+        public override Task<CreateSubscriptionReply> CreateSubscription(CreateSubscriptionRequest request, ServerCallContext context)
+        {
+            var topic = server.GetTopic(request.TopicName);
+            topic.CreateSubscription(request.SubscriptionName);
+            return Task.FromResult(new FastQueueService.CreateSubscriptionReply());
+        }
+
+        public override async Task<DeleteSubscriptionReply> DeleteSubscription(DeleteSubscriptionRequest request, ServerCallContext context)
+        {
+            var topic = server.GetTopic(request.TopicName);
+            await topic.DeleteSubscription(request.SubscriptionName);
+            return new FastQueueService.DeleteSubscriptionReply();
         }
 
         public override async Task Publish(IAsyncStreamReader<FastQueueService.WriteRequest> requestStream, IServerStreamWriter<FastQueueService.PublisherAck> responseStream, ServerCallContext context)
@@ -89,7 +110,7 @@ namespace FastQueue.Server.Grpc.Services
             }
         }
 
-        private FastQueueService.Messages CreateMessages(ReadOnlySpan<Message> messages)
+        private FastQueueService.Messages CreateMessages(ReadOnlySpan<Core.Model.Message> messages)
         {
             var messagesToSend = new FastQueueService.Messages();
 

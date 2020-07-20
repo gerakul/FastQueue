@@ -26,7 +26,7 @@ namespace TestConsole
 
             //await ClientTest();
             var stask = SubscriberTest();
-            await PublishTest();
+            //await PublishTest();
             //await PublishManyTest();
 
             Console.WriteLine("end");
@@ -192,6 +192,10 @@ namespace TestConsole
             server.Restore();
 
             string topicName = "topic1";
+
+            await server.GetTopic(topicName).DeleteSubscription("sub2");
+            await server.GetTopic(topicName).DeleteSubscription("sub3");
+            return;
 
             //await server.DeleteTopic(topicName, true);
             //server.CreateNewTopic(topicName);
