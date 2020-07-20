@@ -42,6 +42,19 @@ namespace FastQueue.Client
             return publisher;
         }
 
+        public async Task<ISubscriber> CreateSubscriber(string topicName, string subscriptionName, Action<ISubscriber, IEnumerable<Message>> messagesHandler)
+        {
+            var duplexStream = grpcClient.Subscribe();
+            await duplexStream.RequestStream.WriteAsync(new FastQueueService.CompleteRequest 
+            { 
+                TopicName = topicName,
+                SubscriptionName = subscriptionName
+            });
+            var subscriber = new Subscriber(duplexStream, messagesHandler);
+            subscriber.StartReceivingLoop();
+            return subscriber;
+        }
+
         public void Dispose()
         {
             channel?.Dispose();

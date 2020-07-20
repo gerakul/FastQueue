@@ -6,6 +6,7 @@ service FastQueueService {
   rpc CreateTopic (CreateTopicRequest) returns (CreateTopicReply) {}
   rpc Publish (stream WriteRequest) returns (stream PublisherAck) {}
   rpc PublishMany (stream WriteManyRequest) returns (stream PublisherAck) {}
+  rpc Subscribe (stream CompleteRequest) returns (stream Messages) {}
 }
 
 message CreateTopicRequest {
@@ -29,6 +30,23 @@ message WriteManyRequest {
 
 message PublisherAck {
   int64 SequenceNumber = 1;
+}
+
+message Message {
+  int64 Id = 1;
+  int64 Timestamp = 2;
+  bytes Body = 3;
+}
+
+message Messages
+{
+    repeated Message Messages = 1;
+}
+
+message CompleteRequest {
+  int64 Id = 1;
+  string TopicName = 2;
+  string SubscriptionName = 3;
 }
 
 

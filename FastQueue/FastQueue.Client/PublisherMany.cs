@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 
 namespace FastQueue.Client
 {
+    // ::: share implementation with Publisher
     internal class PublisherMany : IPublisherMany
     {
         private readonly AsyncDuplexStreamingCall<WriteManyRequest, PublisherAck> duplexStream;
@@ -84,6 +85,7 @@ namespace FastQueue.Client
             catch
             {
                 TaskHelper.FireAndForget(async () => await DisposeAsync());
+                throw;
             }
         }
 

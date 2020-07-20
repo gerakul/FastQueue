@@ -14,7 +14,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ProtoFiles", "ProtoFiles", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastQueue.Server.Grpc", "FastQueue.Server.Grpc\FastQueue.Server.Grpc.csproj", "{415BA1E2-4EC1-47F7-9B5E-8616CD60BE75}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastQueue.Client", "FastQueue.Client\FastQueue.Client.csproj", "{610A0B83-5733-4AE1-8F28-A15FF4FD9D2A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastQueue.Client", "FastQueue.Client\FastQueue.Client.csproj", "{610A0B83-5733-4AE1-8F28-A15FF4FD9D2A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

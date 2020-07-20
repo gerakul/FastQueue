@@ -80,6 +80,7 @@ namespace FastQueue.Client
             catch
             {
                 TaskHelper.FireAndForget(async () => await DisposeAsync());
+                throw;
             }
         }
 

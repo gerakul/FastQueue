@@ -25,10 +25,12 @@ namespace TestConsole
             //await ServerTest();
 
             //await ClientTest();
+            var stask = SubscriberTest();
             await PublishTest();
             //await PublishManyTest();
 
             Console.WriteLine("end");
+            await stask;
             await Task.CompletedTask;
         }
 
@@ -104,6 +106,32 @@ namespace TestConsole
             await Task.Delay(2000);
 
             Console.WriteLine($"End");
+        }
+
+        static async Task SubscriberTest()
+        {
+            // await Task.Delay(60000);
+            Console.WriteLine("Subscriber start");
+
+            string topicName = "topic1";
+            string subscriptionName = "sub1";
+
+            var fastQueueClientOptions = new FastQueueClientOptions
+            {
+                ServerUrl = @"https://localhost:5001"
+            };
+
+            using var client = new FastQueueClient(fastQueueClientOptions);
+            await using var subscriber = await client.CreateSubscriber(topicName, subscriptionName, (sub, ms) =>
+            {
+                var arr = ms.ToArray();
+                Console.WriteLine($"Received: Count {arr.Length}, Range {arr[0].ID} - {arr[^1].ID}");
+                sub.Complete(arr[^1].ID);
+            });
+
+            await Task.Delay(200000);
+
+            Console.WriteLine($"Subscriber End");
         }
 
         static async Task ClientTest()
@@ -238,7 +266,7 @@ namespace TestConsole
                 var cnt = Interlocked.Add(ref receivedCount, ms.Length);
                 Console.WriteLine($"{subName}: Received {cnt}. Last {ms.Span[^1].ID} {DateTimeOffset.UtcNow:mm:ss.fffffff}");
 
-                void ProcessMessages(ReadOnlySpan<Message> msgs)
+                void ProcessMessages(ReadOnlySpan<FastQueue.Server.Core.Model.Message> msgs)
                 {
                     for (int i = 0; i < msgs.Length; i++)
                     {
