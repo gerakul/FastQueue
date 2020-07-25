@@ -1,4 +1,5 @@
 ﻿using FastQueue.Client;
+using FastQueue.Client.Abstractions;
 using FastQueue.Server.Core;
 using FastQueue.Server.Core.Abstractions;
 using FastQueue.Server.Core.Model;
@@ -10,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Schema;
+using ISubscriber = FastQueue.Server.Core.Abstractions.ISubscriber;
 
 namespace TestConsole
 {
@@ -53,7 +55,7 @@ namespace TestConsole
                 ServerUrl = @"https://localhost:5001"
             };
 
-            using var client = new FastQueueClient(fastQueueClientOptions);
+            using IFastQueueClient client = new FastQueueClient(fastQueueClientOptions);
             await using var publisher = await client.CreatePublisher(topicName, ack =>
             {
                 Console.WriteLine($"Ack: {ack}, {DateTimeOffset.UtcNow:mm:ss.fffffff}");
@@ -90,7 +92,7 @@ namespace TestConsole
                 ServerUrl = @"https://localhost:5001"
             };
 
-            using var client = new FastQueueClient(fastQueueClientOptions);
+            using IFastQueueClient client = new FastQueueClient(fastQueueClientOptions);
             await using var publisher = await client.CreatePublisherMany(topicName, ack =>
             {
                 Console.WriteLine($"Ack: {ack}, {DateTimeOffset.UtcNow:mm:ss.fffffff}");
@@ -122,7 +124,7 @@ namespace TestConsole
                 ServerUrl = @"https://localhost:5001"
             };
 
-            using var client = new FastQueueClient(fastQueueClientOptions);
+            using IFastQueueClient client = new FastQueueClient(fastQueueClientOptions);
             await using var subscriber = await client.CreateSubscriber(topicName, subscriptionName, (sub, ms) =>
             {
                 var arr = ms.ToArray();
@@ -133,33 +135,6 @@ namespace TestConsole
             await Task.Delay(200000);
 
             Console.WriteLine($"Subscriber End");
-        }
-
-        static async Task ClientTest()
-        {
-            for (int i = 0; i < 10000; i++)
-            {
-                try
-                {
-                    var fastQueueClientOptions = new FastQueueClientOptions
-                    {
-                        ServerUrl = @"https://localhost:5001"
-                    };
-
-                    using var client = new FastQueueClient(fastQueueClientOptions);
-
-                    await client.CreateTopic("topic1", default);
-
-                    Console.WriteLine($"{i}: ");
-
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-
-                await Task.Delay(1000);
-            }
         }
 
         static async Task ServerTest()
@@ -255,7 +230,7 @@ namespace TestConsole
             await writer.DisposeAsync();
         }
 
-        static ISubscriber Read(string topicName, string subName)
+        static FastQueue.Server.Core.Abstractions.ISubscriber Read(string topicName, string subName)
         {
             var topic = server.GetTopic(topicName);
             if (!topic.SubscriptionExists(subName))

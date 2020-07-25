@@ -1,9 +1,7 @@
 ﻿using FastQueue.Server.Core.Abstractions;
-using FastQueue.Server.Core.Model;
 using FastQueueService;
 using Grpc.Core;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
