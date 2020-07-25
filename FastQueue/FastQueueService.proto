@@ -46,13 +46,18 @@ message DeleteSubscriptionReply {
 message WriteRequest {
   int64 SequenceNumber = 1;
   bytes Message = 2;
-  string TopicName = 3;
+  PublisherOptions Options = 3;
 }
 
 message WriteManyRequest {
   int64 SequenceNumber = 1;
   repeated bytes Messages = 2;
-  string TopicName = 3;
+  PublisherOptions Options = 3;
+}
+
+message PublisherOptions {
+    string TopicName = 1;
+    int32 ConfirmationIntervalMilliseconds = 2;
 }
 
 message PublisherAck {
@@ -72,8 +77,15 @@ message Messages
 
 message CompleteRequest {
   int64 Id = 1;
-  string TopicName = 2;
-  string SubscriptionName = 3;
+  SubscriberOptions Options = 2;
 }
+
+message SubscriberOptions {
+  string TopicName = 1;
+  string SubscriptionName = 2;
+  int32 MaxMessagesInBatch = 3;
+  int32 PushIntervalMilliseconds = 4;
+}
+
 
 

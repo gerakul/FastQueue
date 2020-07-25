@@ -187,8 +187,8 @@ namespace FastQueue.Server.Core
 
     public class SubscriberOptions
     {
-        public int PushIntervalMilliseconds { get; set; } = 50;
-        public int MaxMessagesInBatch { get; set; } = 10000;
+        public int PushIntervalMilliseconds { get; set; }
+        public int MaxMessagesInBatch { get; set; }
 
         public SubscriberOptions()
         {

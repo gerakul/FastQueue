@@ -26,11 +26,12 @@ namespace TestConsole
 
             //await ClientTest();
             var stask = SubscriberTest();
-            //await PublishTest();
+            await PublishTest();
             //await PublishManyTest();
 
-            Console.WriteLine("end");
             await stask;
+
+            Console.WriteLine("end");
             await Task.CompletedTask;
         }
 
@@ -60,7 +61,7 @@ namespace TestConsole
 
             Console.WriteLine($"Start: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
 
-            for (int i = 0; i < 100000; i++)
+            for (int i = 0; i < 10000; i++)
             {
                 var m = messages[i % messages.Length];
                 await publisher.Publish(m);
@@ -295,7 +296,7 @@ namespace TestConsole
                 ProcessMessages(ms.Span);
 
                 await Task.CompletedTask;
-            }, new SubscriberOptions
+            }, new FastQueue.Server.Core.SubscriberOptions
             {
                 MaxMessagesInBatch = 100000,
                 PushIntervalMilliseconds = 50
@@ -363,7 +364,7 @@ namespace TestConsole
                 sub.Complete(arr[^1].ID);
 
                 await Task.CompletedTask;
-            }, new SubscriberOptions
+            }, new FastQueue.Server.Core.SubscriberOptions
             {
                 MaxMessagesInBatch = 10000,
                 PushIntervalMilliseconds = 50
@@ -373,6 +374,9 @@ namespace TestConsole
             {
                 Console.WriteLine($"Confirmed {ack.SequenceNumber}. {DateTimeOffset.UtcNow:mm:ss.fffffff}");
                 await Task.CompletedTask;
+            }, new TopicWriterOptions
+            {
+                ConfirmationIntervalMilliseconds = 100
             });
 
             long seqNum = 0;

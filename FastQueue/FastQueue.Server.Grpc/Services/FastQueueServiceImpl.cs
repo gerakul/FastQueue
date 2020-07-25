@@ -51,12 +51,12 @@ namespace FastQueue.Server.Grpc.Services
                 return;
             }
 
-            var topic = server.GetTopic(requestStream.Current.TopicName);
+            var opt = requestStream.Current.Options;
+            var topic = server.GetTopic(opt.TopicName);
             await using var writer = topic.CreateWriter((ack, ct) => responseStream.WriteAsync(new FastQueueService.PublisherAck { SequenceNumber = ack.SequenceNumber }),
                 new Core.TopicWriterOptions
                 {
-                    // ::: from config
-                    ConfirmationIntervalMilliseconds = 100
+                    ConfirmationIntervalMilliseconds = opt.ConfirmationIntervalMilliseconds
                 });
 
             while (await requestStream.MoveNext(context.CancellationToken))
@@ -73,12 +73,12 @@ namespace FastQueue.Server.Grpc.Services
                 return;
             }
 
-            var topic = server.GetTopic(requestStream.Current.TopicName);
+            var opt = requestStream.Current.Options;
+            var topic = server.GetTopic(opt.TopicName);
             await using var writer = topic.CreateWriter((ack, ct) => responseStream.WriteAsync(new FastQueueService.PublisherAck { SequenceNumber = ack.SequenceNumber }),
                 new Core.TopicWriterOptions
                 {
-                    // ::: from config
-                    ConfirmationIntervalMilliseconds = 100
+                    ConfirmationIntervalMilliseconds = opt.ConfirmationIntervalMilliseconds
                 });
 
             while (await requestStream.MoveNext(context.CancellationToken))
@@ -95,13 +95,13 @@ namespace FastQueue.Server.Grpc.Services
                 return;
             }
 
-            var topic = server.GetTopic(requestStream.Current.TopicName);
-            await using var subscriber = topic.Subscribe(requestStream.Current.SubscriptionName, (ms, ct) => responseStream.WriteAsync(CreateMessages(ms.Span)),
+            var opt = requestStream.Current.Options;
+            var topic = server.GetTopic(opt.TopicName);
+            await using var subscriber = topic.Subscribe(opt.SubscriptionName, (ms, ct) => responseStream.WriteAsync(CreateMessages(ms.Span)),
                 new Core.SubscriberOptions
                 {
-                    // ::: from config
-                    MaxMessagesInBatch  = 10000,
-                    PushIntervalMilliseconds = 50
+                    MaxMessagesInBatch  = opt.MaxMessagesInBatch,
+                    PushIntervalMilliseconds = opt.PushIntervalMilliseconds
                 });
 
             while (await requestStream.MoveNext(context.CancellationToken))

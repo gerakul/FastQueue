@@ -9,9 +9,9 @@ namespace FastQueue.Server.Core.Abstractions
 {
     public interface ITopic
     {
-        ITopicWriter CreateWriter(Func<PublisherAck, CancellationToken, Task> ackHandler, TopicWriterOptions topicWriterOptions = null);
+        ITopicWriter CreateWriter(Func<PublisherAck, CancellationToken, Task> ackHandler, TopicWriterOptions topicWriterOptions);
         ISubscriber Subscribe(string subscriptionName, Func<ReadOnlyMemory<Message>, CancellationToken, Task> push,
-            SubscriberOptions subscriberOptions = null);
+            SubscriberOptions subscriberOptions);
 
         void CreateSubscription(string subscriptionName);
         void CreateSubscription(string subscriptionName, long startReadingFromId);

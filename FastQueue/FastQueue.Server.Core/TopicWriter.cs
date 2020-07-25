@@ -176,7 +176,7 @@ namespace FastQueue.Server.Core
 
     public class TopicWriterOptions
     {
-        public int ConfirmationIntervalMilliseconds { get; set; } = 50;
+        public int ConfirmationIntervalMilliseconds { get; set; }
 
         public TopicWriterOptions()
         {

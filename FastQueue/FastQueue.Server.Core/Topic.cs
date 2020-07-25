@@ -182,7 +182,7 @@ namespace FastQueue.Server.Core
             RestoreSubscriptions();
         }
 
-        public ITopicWriter CreateWriter(Func<PublisherAck, CancellationToken, Task> ackHandler, TopicWriterOptions topicWriterOptions = null)
+        public ITopicWriter CreateWriter(Func<PublisherAck, CancellationToken, Task> ackHandler, TopicWriterOptions topicWriterOptions)
         {
             lock (writersSync)
             {
@@ -191,7 +191,7 @@ namespace FastQueue.Server.Core
                     throw new TopicManagementException($"Cannot create Writer when topic {name} is being stopped");
                 }
 
-                var writer = new TopicWriter(this, ackHandler, topicWriterOptions ?? new TopicWriterOptions());
+                var writer = new TopicWriter(this, ackHandler, topicWriterOptions);
                 writers.Add(writer);
                 writer.StartConfirmationLoop();
                 return writer;
@@ -269,7 +269,7 @@ namespace FastQueue.Server.Core
         }
 
         public ISubscriber Subscribe(string subscriptionName, Func<ReadOnlyMemory<Message>, CancellationToken, Task> push, 
-            SubscriberOptions subscriberOptions = null)
+            SubscriberOptions subscriberOptions)
         {
             lock (subscriptionsSync)
             {
@@ -284,7 +284,7 @@ namespace FastQueue.Server.Core
                     throw new SubscriptionManagementException($"Subscription {subscriptionName} doesn't exist in the topic {name}");
                 }
 
-                return sub.CreateSubscriber(push, subscriberOptions ?? new SubscriberOptions());
+                return sub.CreateSubscriber(push, subscriberOptions);
             }
         }
 
