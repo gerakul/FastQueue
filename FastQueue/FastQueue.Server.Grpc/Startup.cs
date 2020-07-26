@@ -4,6 +4,7 @@ using FastQueue.Server.Grpc.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,13 @@ namespace FastQueue.Server.Grpc
 {
     public class Startup
     {
+        private readonly IConfiguration configuration;
+
+        public Startup(IConfiguration configuration)
+        {
+            this.configuration = configuration;
+        }
+
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddLogging(logging =>
@@ -20,31 +28,10 @@ namespace FastQueue.Server.Grpc
                 logging.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Information);
             });
 
-            // ::: get from config file
-            var topicFactory = new FileTopicFactory(new TopicFactoryOptions
-            {
-                DirectoryPath = @"C:\temp\storage",
-                PersistentStorageFileLengthThreshold = 100 * 1024 * 1024,
-                SubscriptionPointersStorageFileLengthThreshold = 10 * 1024 * 1024,
-                TopicOptions = new TopicOptions
-                {
-                    PersistenceIntervalMilliseconds = 100,
-                    PersistenceMaxFails = 100,
-                    CleanupMaxFails = 10000,
-                    SubscriptionPointersFlushMaxFails = 500,
-                    DataArrayOptions = new InfiniteArrayOptions
-                    {
-                        BlockLength = 100000,
-                        DataListCapacity = 128,
-                        MinimumFreeBlocks = 20
-                    }
-                }
-            });
+            var fastQueueConfiguration = FastQueueConfiguration.Read(configuration);
 
-            var topicsConfigStorage = new TopicsConfigurationFileStorage(new TopicsConfigurationFileStorageOptions
-            {
-                ConfigurationFile = @"C:\temp\storage\Topics.json"
-            });
+            var topicFactory = new FileTopicFactory(fastQueueConfiguration.TopicFactoryOptions);
+            var topicsConfigStorage = new TopicsConfigurationFileStorage(fastQueueConfiguration.TopicsConfigurationFileStorageOptions);
 
             var server = new Core.Server(topicFactory, topicsConfigStorage);
 
