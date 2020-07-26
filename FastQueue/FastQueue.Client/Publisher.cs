@@ -3,34 +3,20 @@ using FastQueue.Client.Exceptions;
 using FastQueueService;
 using Grpc.Core;
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace FastQueue.Client
 {
-    internal class Publisher : IPublisher
+    internal class Publisher : PublisherBase, IPublisher
     {
         private readonly AsyncDuplexStreamingCall<WriteRequest, PublisherAck> duplexStream;
-        private readonly Action<long> ackHandler;
         private readonly IClientStreamWriter<WriteRequest> requestStream;
-        private readonly IAsyncStreamReader<PublisherAck> responseStream;
-        private CancellationTokenSource cancellationTokenSource;
-        private long sequenceNumber;
-        private object sync = new object();
-        private Task<Task> ackLoopTask;
-        private bool disposed = false;
 
         internal Publisher(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.WriteRequest, FastQueueService.PublisherAck> duplexStream,
-            Action<long> ackHandler)
+            Action<long> ackHandler) : base(duplexStream.ResponseStream, ackHandler)
         {
             this.duplexStream = duplexStream;
-            this.ackHandler = ackHandler;
             requestStream = duplexStream.RequestStream;
-            responseStream = duplexStream.ResponseStream;
-            cancellationTokenSource = new CancellationTokenSource();
-            sequenceNumber = 1;
         }
 
         public async Task<long> Publish(ReadOnlyMemory<byte> message)
@@ -57,51 +43,13 @@ namespace FastQueue.Client
             return seqNum;
         }
 
-        internal void StartAckLoop()
+        public override async ValueTask DisposeAsync()
         {
-            ackLoopTask = Task.Factory.StartNew(() => AckLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
-        }
-
-        private async Task AckLoop(CancellationToken cancellationToken)
-        {
-            try
+            if (await DisposeBase())
             {
-                await foreach (var ack in responseStream.ReadAllAsync(cancellationToken))
-                {
-                    ackHandler?.Invoke(ack.SequenceNumber);
-                }
+                await requestStream.CompleteAsync();
+                duplexStream?.Dispose();
             }
-            catch (TaskCanceledException)
-            {
-            }
-            catch (Grpc.Core.RpcException ex) when (ex.StatusCode == StatusCode.Cancelled)
-            {
-            }
-            catch
-            {
-                TaskHelper.FireAndForget(async () => await DisposeAsync());
-                throw;
-            }
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            lock (sync)
-            {
-                if (disposed)
-                {
-                    return;
-                }
-
-                disposed = true;
-            }
-
-            cancellationTokenSource.Cancel();
-            await await ackLoopTask;
-
-            await requestStream.CompleteAsync();
-
-            duplexStream?.Dispose();
         }
     }
 }
