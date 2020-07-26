@@ -76,13 +76,23 @@ namespace FastQueue.Server.Core
 
         internal void StartConfirmationLoop()
         {
-            confirmationLoopTask = Task.Factory.StartNew(() => ConfirmationLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            if (ackHandler == null)
+            {
+                confirmationLoopTask = null;
+            }
+            else
+            {
+                confirmationLoopTask = Task.Factory.StartNew(() => ConfirmationLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            }
         }
 
         internal async Task StopConfirmationLoop()
         {
             cancellationTokenSource.Cancel();
-            await await confirmationLoopTask;
+            if (confirmationLoopTask != null)
+            {
+                await await confirmationLoopTask;
+            }
         }
 
         private async Task ConfirmationLoop(CancellationToken cancellationToken)

@@ -58,6 +58,7 @@ message WriteManyRequest {
 message PublisherOptions {
     string TopicName = 1;
     int32 ConfirmationIntervalMilliseconds = 2;
+    bool AckHandlerIsNull = 3;
 }
 
 message PublisherAck {

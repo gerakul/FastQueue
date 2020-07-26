@@ -1,4 +1,5 @@
 ﻿using FastQueue.Client.Abstractions;
+using FastQueue.Client.Exceptions;
 using FastQueueService;
 using Grpc.Core;
 using Grpc.Net.Client;
@@ -55,15 +56,15 @@ namespace FastQueue.Client
 
         public Task<IPublisherMany> CreatePublisherMany(string topicName, Action<long> ackHandler, PublisherOptions options = null)
         {
-            return CreatePublisherManyInternal(topicName, options, duplexStream => new PublisherMany(duplexStream, ackHandler));
+            return CreatePublisherManyInternal(topicName, options, ackHandler == null, duplexStream => new PublisherMany(duplexStream, ackHandler));
         }
 
         public Task<IPublisherMany> CreatePublisherMany(string topicName, Func<long, Task> ackHandler, PublisherOptions options = null)
         {
-            return CreatePublisherManyInternal(topicName, options, duplexStream => new PublisherMany(duplexStream, ackHandler));
+            return CreatePublisherManyInternal(topicName, options, ackHandler == null, duplexStream => new PublisherMany(duplexStream, ackHandler));
         }
 
-        private async Task<IPublisherMany> CreatePublisherManyInternal(string topicName, PublisherOptions options,
+        private async Task<IPublisherMany> CreatePublisherManyInternal(string topicName, PublisherOptions options, bool ackHandlerIsNull,
             Func<AsyncDuplexStreamingCall<WriteManyRequest, PublisherAck>, PublisherMany> publisherFactory)
         {
             var opt = options ?? new PublisherOptions();
@@ -73,7 +74,8 @@ namespace FastQueue.Client
                 Options = new FastQueueService.PublisherOptions
                 {
                     TopicName = topicName,
-                    ConfirmationIntervalMilliseconds = opt.ConfirmationIntervalMilliseconds
+                    ConfirmationIntervalMilliseconds = opt.ConfirmationIntervalMilliseconds,
+                    AckHandlerIsNull = ackHandlerIsNull
                 }
             });
             var publisher = publisherFactory(duplexStream);
@@ -84,12 +86,22 @@ namespace FastQueue.Client
         public Task<ISubscriber> CreateSubscriber(string topicName, string subscriptionName, Action<ISubscriber, IEnumerable<Message>> messagesHandler,
             SubscriberOptions options = null)
         {
+            if (messagesHandler == null)
+            {
+                throw new ArgumentNullException(nameof(messagesHandler));
+            }
+
             return CreateSubscriberInternal(topicName, subscriptionName, options, duplexStream => new Subscriber(duplexStream, messagesHandler));
         }
 
         public Task<ISubscriber> CreateSubscriber(string topicName, string subscriptionName, Func<ISubscriber, IEnumerable<Message>, Task> messagesHandler,
             SubscriberOptions options = null)
         {
+            if (messagesHandler == null)
+            {
+                throw new ArgumentNullException(nameof(messagesHandler));
+            }
+
             return CreateSubscriberInternal(topicName, subscriptionName, options, duplexStream => new Subscriber(duplexStream, messagesHandler));
         }
 

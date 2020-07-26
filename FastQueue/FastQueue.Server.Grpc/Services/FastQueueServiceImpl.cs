@@ -3,6 +3,7 @@ using FastQueueService;
 using Grpc.Core;
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FastQueue.Server.Grpc.Services
@@ -51,7 +52,8 @@ namespace FastQueue.Server.Grpc.Services
 
             var opt = requestStream.Current.Options;
             var topic = server.GetTopic(opt.TopicName);
-            await using var writer = topic.CreateWriter((ack, ct) => responseStream.WriteAsync(new FastQueueService.PublisherAck { SequenceNumber = ack.SequenceNumber }),
+            await using var writer = topic.CreateWriter(opt.AckHandlerIsNull ? (Func<Core.Model.PublisherAck, CancellationToken, Task>)null 
+                : (ack, ct) => responseStream.WriteAsync(new FastQueueService.PublisherAck { SequenceNumber = ack.SequenceNumber }),
                 new Core.TopicWriterOptions
                 {
                     ConfirmationIntervalMilliseconds = opt.ConfirmationIntervalMilliseconds
@@ -73,7 +75,8 @@ namespace FastQueue.Server.Grpc.Services
 
             var opt = requestStream.Current.Options;
             var topic = server.GetTopic(opt.TopicName);
-            await using var writer = topic.CreateWriter((ack, ct) => responseStream.WriteAsync(new FastQueueService.PublisherAck { SequenceNumber = ack.SequenceNumber }),
+            await using var writer = topic.CreateWriter(opt.AckHandlerIsNull ? (Func<Core.Model.PublisherAck, CancellationToken, Task>)null
+                : (ack, ct) => responseStream.WriteAsync(new FastQueueService.PublisherAck { SequenceNumber = ack.SequenceNumber }),
                 new Core.TopicWriterOptions
                 {
                     ConfirmationIntervalMilliseconds = opt.ConfirmationIntervalMilliseconds

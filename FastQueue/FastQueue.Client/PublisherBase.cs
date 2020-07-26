@@ -40,7 +40,14 @@ namespace FastQueue.Client
 
         internal void StartAckLoop()
         {
-            ackLoopTask = Task.Factory.StartNew(() => AckLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            if (ackHandler == null && ackHandlerAsync == null)
+            {
+                ackLoopTask = null;
+            }
+            else
+            {
+                ackLoopTask = Task.Factory.StartNew(() => AckLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
+            }
         }
 
         private async Task AckLoop(CancellationToken cancellationToken)
@@ -51,14 +58,14 @@ namespace FastQueue.Client
                 {
                     await foreach (var ack in responseStream.ReadAllAsync(cancellationToken))
                     {
-                        await ackHandlerAsync.Invoke(ack.SequenceNumber);
+                        await ackHandlerAsync(ack.SequenceNumber);
                     }
                 }
                 else
                 {
                     await foreach (var ack in responseStream.ReadAllAsync(cancellationToken))
                     {
-                        ackHandler?.Invoke(ack.SequenceNumber);
+                        ackHandler(ack.SequenceNumber);
                     }
                 }
             }
@@ -88,7 +95,11 @@ namespace FastQueue.Client
             }
 
             cancellationTokenSource.Cancel();
-            await await ackLoopTask;
+            if (ackLoopTask != null)
+            {
+                await await ackLoopTask;
+            }
+
             return true;
         }
 
