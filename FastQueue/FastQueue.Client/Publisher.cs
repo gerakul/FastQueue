@@ -19,6 +19,13 @@ namespace FastQueue.Client
             requestStream = duplexStream.RequestStream;
         }
 
+        internal Publisher(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.WriteRequest, FastQueueService.PublisherAck> duplexStream,
+            Func<long, Task> ackHandler) : base(duplexStream.ResponseStream, ackHandler)
+        {
+            this.duplexStream = duplexStream;
+            requestStream = duplexStream.RequestStream;
+        }
+
         public async Task<long> Publish(ReadOnlyMemory<byte> message)
         {
             Task writeTask;

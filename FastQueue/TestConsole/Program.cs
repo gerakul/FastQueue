@@ -56,9 +56,10 @@ namespace TestConsole
             };
 
             using IFastQueueClient client = new FastQueueClient(fastQueueClientOptions);
-            await using var publisher = await client.CreatePublisher(topicName, ack =>
+            await using var publisher = await client.CreatePublisher(topicName, async ack =>
             {
                 Console.WriteLine($"Ack: {ack}, {DateTimeOffset.UtcNow:mm:ss.fffffff}");
+                await Task.CompletedTask;
             });
 
             Console.WriteLine($"Start: {DateTimeOffset.UtcNow:mm:ss.fffffff}");
@@ -125,11 +126,11 @@ namespace TestConsole
             };
 
             using IFastQueueClient client = new FastQueueClient(fastQueueClientOptions);
-            await using var subscriber = await client.CreateSubscriber(topicName, subscriptionName, (sub, ms) =>
+            await using var subscriber = await client.CreateSubscriber(topicName, subscriptionName, async (sub, ms) =>
             {
                 var arr = ms.ToArray();
                 Console.WriteLine($"Received: Count {arr.Length}, Range {arr[0].ID} - {arr[^1].ID}");
-                sub.Complete(arr[^1].ID);
+                await sub.Complete(arr[^1].ID);
             });
 
             await Task.Delay(200000);

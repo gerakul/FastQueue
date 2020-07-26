@@ -1,4 +1,6 @@
 ﻿using FastQueue.Client.Abstractions;
+using FastQueueService;
+using Grpc.Core;
 using Grpc.Net.Client;
 using System;
 using System.Collections.Generic;
@@ -23,56 +25,90 @@ namespace FastQueue.Client
             await grpcClient.CreateTopicAsync(new FastQueueService.CreateTopicRequest { Name = name }, cancellationToken: cancellationToken);
         }
 
-        public async Task<IPublisher> CreatePublisher(string topicName, Action<long> ackHandler, PublisherOptions options = null)
+        public Task<IPublisher> CreatePublisher(string topicName, Action<long> ackHandler, PublisherOptions options = null)
+        {
+            return CreatePublisherInternal(topicName, options, duplexStream => new Publisher(duplexStream, ackHandler));
+        }
+
+        public Task<IPublisher> CreatePublisher(string topicName, Func<long, Task> ackHandler, PublisherOptions options = null)
+        {
+            return CreatePublisherInternal(topicName, options, duplexStream => new Publisher(duplexStream, ackHandler));
+        }
+
+        private async Task<IPublisher> CreatePublisherInternal(string topicName, PublisherOptions options, 
+            Func<AsyncDuplexStreamingCall<WriteRequest, PublisherAck>, Publisher> publisherFactory)
         {
             var opt = options ?? new PublisherOptions();
             var duplexStream = grpcClient.Publish();
-            await duplexStream.RequestStream.WriteAsync(new FastQueueService.WriteRequest 
-                { 
-                    Options = new FastQueueService.PublisherOptions 
-                    { 
-                        TopicName = topicName,
-                        ConfirmationIntervalMilliseconds = opt.ConfirmationIntervalMilliseconds
-                    } 
-                });
-            var publisher = new Publisher(duplexStream, ackHandler);
+            await duplexStream.RequestStream.WriteAsync(new FastQueueService.WriteRequest
+            {
+                Options = new FastQueueService.PublisherOptions
+                {
+                    TopicName = topicName,
+                    ConfirmationIntervalMilliseconds = opt.ConfirmationIntervalMilliseconds
+                }
+            });
+            var publisher = publisherFactory(duplexStream);
             publisher.StartAckLoop();
             return publisher;
         }
 
-        public async Task<IPublisherMany> CreatePublisherMany(string topicName, Action<long> ackHandler, PublisherOptions options = null)
+        public Task<IPublisherMany> CreatePublisherMany(string topicName, Action<long> ackHandler, PublisherOptions options = null)
+        {
+            return CreatePublisherManyInternal(topicName, options, duplexStream => new PublisherMany(duplexStream, ackHandler));
+        }
+
+        public Task<IPublisherMany> CreatePublisherMany(string topicName, Func<long, Task> ackHandler, PublisherOptions options = null)
+        {
+            return CreatePublisherManyInternal(topicName, options, duplexStream => new PublisherMany(duplexStream, ackHandler));
+        }
+
+        private async Task<IPublisherMany> CreatePublisherManyInternal(string topicName, PublisherOptions options,
+            Func<AsyncDuplexStreamingCall<WriteManyRequest, PublisherAck>, PublisherMany> publisherFactory)
         {
             var opt = options ?? new PublisherOptions();
             var duplexStream = grpcClient.PublishMany();
             await duplexStream.RequestStream.WriteAsync(new FastQueueService.WriteManyRequest
+            {
+                Options = new FastQueueService.PublisherOptions
                 {
-                    Options = new FastQueueService.PublisherOptions
-                    {
-                        TopicName = topicName,
-                        ConfirmationIntervalMilliseconds = opt.ConfirmationIntervalMilliseconds
-                    }
-                });
-            var publisher = new PublisherMany(duplexStream, ackHandler);
+                    TopicName = topicName,
+                    ConfirmationIntervalMilliseconds = opt.ConfirmationIntervalMilliseconds
+                }
+            });
+            var publisher = publisherFactory(duplexStream);
             publisher.StartAckLoop();
             return publisher;
         }
 
-        public async Task<ISubscriber> CreateSubscriber(string topicName, string subscriptionName, Action<ISubscriber, IEnumerable<Message>> messagesHandler,
+        public Task<ISubscriber> CreateSubscriber(string topicName, string subscriptionName, Action<ISubscriber, IEnumerable<Message>> messagesHandler,
             SubscriberOptions options = null)
+        {
+            return CreateSubscriberInternal(topicName, subscriptionName, options, duplexStream => new Subscriber(duplexStream, messagesHandler));
+        }
+
+        public Task<ISubscriber> CreateSubscriber(string topicName, string subscriptionName, Func<ISubscriber, IEnumerable<Message>, Task> messagesHandler,
+            SubscriberOptions options = null)
+        {
+            return CreateSubscriberInternal(topicName, subscriptionName, options, duplexStream => new Subscriber(duplexStream, messagesHandler));
+        }
+
+        private async Task<ISubscriber> CreateSubscriberInternal(string topicName, string subscriptionName, SubscriberOptions options,
+            Func<AsyncDuplexStreamingCall<FastQueueService.CompleteRequest, FastQueueService.Messages>, Subscriber> subscriberFactory)
         {
             var opt = options ?? new SubscriberOptions();
             var duplexStream = grpcClient.Subscribe();
             await duplexStream.RequestStream.WriteAsync(new FastQueueService.CompleteRequest
+            {
+                Options = new FastQueueService.SubscriberOptions
                 {
-                    Options = new FastQueueService.SubscriberOptions
-                    {
-                        TopicName = topicName,
-                        SubscriptionName = subscriptionName,
-                        MaxMessagesInBatch = opt.MaxMessagesInBatch,
-                        PushIntervalMilliseconds = opt.PushIntervalMilliseconds
-                    }
-                });
-            var subscriber = new Subscriber(duplexStream, messagesHandler);
+                    TopicName = topicName,
+                    SubscriptionName = subscriptionName,
+                    MaxMessagesInBatch = opt.MaxMessagesInBatch,
+                    PushIntervalMilliseconds = opt.PushIntervalMilliseconds
+                }
+            });
+            var subscriber = subscriberFactory(duplexStream);
             subscriber.StartReceivingLoop();
             return subscriber;
         }

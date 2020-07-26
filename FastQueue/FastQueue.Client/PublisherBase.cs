@@ -9,6 +9,7 @@ namespace FastQueue.Client
     internal abstract class PublisherBase : IAsyncDisposable
     {
         private readonly Action<long> ackHandler;
+        private readonly Func<long, Task> ackHandlerAsync;
         private readonly IAsyncStreamReader<PublisherAck> responseStream;
         private Task<Task> ackLoopTask;
         private CancellationTokenSource cancellationTokenSource;
@@ -21,6 +22,18 @@ namespace FastQueue.Client
         {
             this.responseStream = responseStream;
             this.ackHandler = ackHandler;
+            Initialize();
+        }
+
+        internal PublisherBase(IAsyncStreamReader<PublisherAck> responseStream, Func<long, Task> ackHandler)
+        {
+            this.responseStream = responseStream;
+            this.ackHandlerAsync = ackHandler;
+            Initialize();
+        }
+
+        private void Initialize()
+        {
             cancellationTokenSource = new CancellationTokenSource();
             sequenceNumber = 1;
         }
@@ -34,9 +47,19 @@ namespace FastQueue.Client
         {
             try
             {
-                await foreach (var ack in responseStream.ReadAllAsync(cancellationToken))
+                if (ackHandlerAsync != null)
                 {
-                    ackHandler?.Invoke(ack.SequenceNumber);
+                    await foreach (var ack in responseStream.ReadAllAsync(cancellationToken))
+                    {
+                        await ackHandlerAsync.Invoke(ack.SequenceNumber);
+                    }
+                }
+                else
+                {
+                    await foreach (var ack in responseStream.ReadAllAsync(cancellationToken))
+                    {
+                        ackHandler?.Invoke(ack.SequenceNumber);
+                    }
                 }
             }
             catch (TaskCanceledException)

@@ -14,6 +14,7 @@ namespace FastQueue.Client
     {
         private readonly AsyncDuplexStreamingCall<FastQueueService.CompleteRequest, FastQueueService.Messages> duplexStream;
         private readonly Action<ISubscriber, IEnumerable<Message>> messagesHandler;
+        private readonly Func<ISubscriber, IEnumerable<Message>, Task> messagesHandlerAsync;
         private readonly IClientStreamWriter<FastQueueService.CompleteRequest> requestStream;
         private readonly IAsyncStreamReader<FastQueueService.Messages> responseStream;
         private CancellationTokenSource cancellationTokenSource;
@@ -30,6 +31,16 @@ namespace FastQueue.Client
             cancellationTokenSource = new CancellationTokenSource();
         }
 
+        internal Subscriber(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.CompleteRequest, FastQueueService.Messages> duplexStream,
+            Func<ISubscriber, IEnumerable<Message>, Task> messagesHandlerAsync)
+        {
+            this.duplexStream = duplexStream;
+            this.messagesHandlerAsync = messagesHandlerAsync;
+            requestStream = duplexStream.RequestStream;
+            responseStream = duplexStream.ResponseStream;
+            cancellationTokenSource = new CancellationTokenSource();
+        }
+
         internal void StartReceivingLoop()
         {
             receivingLoopTask = Task.Factory.StartNew(() => ReceivingLoop(cancellationTokenSource.Token), TaskCreationOptions.LongRunning);
@@ -39,11 +50,23 @@ namespace FastQueue.Client
         {
             try
             {
-                await foreach (var messages in responseStream.ReadAllAsync(cancellationToken))
+                if (messagesHandlerAsync != null)
                 {
-                    // ::: change ToByteArray on Memory when available
-                    var receivedMessages = messages.Messages_.Select(x => new Message(x.Id, new DateTime(x.Timestamp), new ReadOnlyMemory<byte>(x.Body.ToByteArray())));
-                    messagesHandler?.Invoke(this, receivedMessages);
+                    await foreach (var messages in responseStream.ReadAllAsync(cancellationToken))
+                    {
+                        // ::: change ToByteArray on Memory when available
+                        var receivedMessages = messages.Messages_.Select(x => new Message(x.Id, new DateTime(x.Timestamp), new ReadOnlyMemory<byte>(x.Body.ToByteArray())));
+                        await messagesHandlerAsync(this, receivedMessages);
+                    }
+                }
+                else
+                {
+                    await foreach (var messages in responseStream.ReadAllAsync(cancellationToken))
+                    {
+                        // ::: change ToByteArray on Memory when available
+                        var receivedMessages = messages.Messages_.Select(x => new Message(x.Id, new DateTime(x.Timestamp), new ReadOnlyMemory<byte>(x.Body.ToByteArray())));
+                        messagesHandler(this, receivedMessages);
+                    }
                 }
             }
             catch (TaskCanceledException)
