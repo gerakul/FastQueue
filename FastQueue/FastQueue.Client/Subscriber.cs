@@ -12,16 +12,16 @@ namespace FastQueue.Client
 {
     public class Subscriber : ISubscriber
     {
-        private readonly AsyncDuplexStreamingCall<FastQueueService.CompleteRequest, FastQueueService.Messages> duplexStream;
+        private readonly AsyncDuplexStreamingCall<FastQueueService.CompleteRequest, FastQueueService.MessageBatch> duplexStream;
         private readonly Action<ISubscriber, IEnumerable<Message>> messagesHandler;
         private readonly Func<ISubscriber, IEnumerable<Message>, Task> messagesHandlerAsync;
         private readonly IClientStreamWriter<FastQueueService.CompleteRequest> requestStream;
-        private readonly IAsyncStreamReader<FastQueueService.Messages> responseStream;
+        private readonly IAsyncStreamReader<FastQueueService.MessageBatch> responseStream;
         private CancellationTokenSource cancellationTokenSource;
         private Task<Task> receivingLoopTask;
         private bool disposed = false;
 
-        internal Subscriber(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.CompleteRequest, FastQueueService.Messages> duplexStream,
+        internal Subscriber(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.CompleteRequest, FastQueueService.MessageBatch> duplexStream,
             Action<ISubscriber, IEnumerable<Message>> messagesHandler)
         {
             this.duplexStream = duplexStream;
@@ -31,7 +31,7 @@ namespace FastQueue.Client
             cancellationTokenSource = new CancellationTokenSource();
         }
 
-        internal Subscriber(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.CompleteRequest, FastQueueService.Messages> duplexStream,
+        internal Subscriber(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.CompleteRequest, FastQueueService.MessageBatch> duplexStream,
             Func<ISubscriber, IEnumerable<Message>, Task> messagesHandlerAsync)
         {
             this.duplexStream = duplexStream;
@@ -55,7 +55,7 @@ namespace FastQueue.Client
                     await foreach (var messages in responseStream.ReadAllAsync(cancellationToken))
                     {
                         // ::: change ToByteArray on Memory when available
-                        var receivedMessages = messages.Messages_.Select(x => new Message(x.Id, new DateTime(x.Timestamp), new ReadOnlyMemory<byte>(x.Body.ToByteArray())));
+                        var receivedMessages = messages.Messages.Select(x => new Message(x.Id, new DateTime(x.Timestamp), new ReadOnlyMemory<byte>(x.Body.ToByteArray())));
                         await messagesHandlerAsync(this, receivedMessages);
                     }
                 }
@@ -64,7 +64,7 @@ namespace FastQueue.Client
                     await foreach (var messages in responseStream.ReadAllAsync(cancellationToken))
                     {
                         // ::: change ToByteArray on Memory when available
-                        var receivedMessages = messages.Messages_.Select(x => new Message(x.Id, new DateTime(x.Timestamp), new ReadOnlyMemory<byte>(x.Body.ToByteArray())));
+                        var receivedMessages = messages.Messages.Select(x => new Message(x.Id, new DateTime(x.Timestamp), new ReadOnlyMemory<byte>(x.Body.ToByteArray())));
                         messagesHandler(this, receivedMessages);
                     }
                 }

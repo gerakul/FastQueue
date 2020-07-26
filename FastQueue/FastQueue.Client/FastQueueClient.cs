@@ -106,7 +106,7 @@ namespace FastQueue.Client
         }
 
         private async Task<ISubscriber> CreateSubscriberInternal(string topicName, string subscriptionName, SubscriberOptions options,
-            Func<AsyncDuplexStreamingCall<FastQueueService.CompleteRequest, FastQueueService.Messages>, Subscriber> subscriberFactory)
+            Func<AsyncDuplexStreamingCall<FastQueueService.CompleteRequest, FastQueueService.MessageBatch>, Subscriber> subscriberFactory)
         {
             var opt = options ?? new SubscriberOptions();
             var duplexStream = grpcClient.Subscribe();

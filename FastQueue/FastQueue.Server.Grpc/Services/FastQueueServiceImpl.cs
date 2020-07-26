@@ -89,7 +89,7 @@ namespace FastQueue.Server.Grpc.Services
             }
         }
 
-        public override async Task Subscribe(IAsyncStreamReader<FastQueueService.CompleteRequest> requestStream, IServerStreamWriter<FastQueueService.Messages> responseStream, ServerCallContext context)
+        public override async Task Subscribe(IAsyncStreamReader<FastQueueService.CompleteRequest> requestStream, IServerStreamWriter<FastQueueService.MessageBatch> responseStream, ServerCallContext context)
         {
             if (!(await requestStream.MoveNext(context.CancellationToken)))
             {
@@ -111,13 +111,13 @@ namespace FastQueue.Server.Grpc.Services
             }
         }
 
-        private FastQueueService.Messages CreateMessages(ReadOnlySpan<Core.Model.Message> messages)
+        private FastQueueService.MessageBatch CreateMessages(ReadOnlySpan<Core.Model.Message> messages)
         {
-            var messagesToSend = new FastQueueService.Messages();
+            var messagesToSend = new FastQueueService.MessageBatch();
 
             for (int i = 0; i < messages.Length; i++)
             {
-                messagesToSend.Messages_.Add(new FastQueueService.Message
+                messagesToSend.Messages.Add(new FastQueueService.Message
                 {
                     Id = messages[i].ID,
                     Timestamp = messages[i].EnqueuedTime.Ticks,

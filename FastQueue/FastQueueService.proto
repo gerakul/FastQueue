@@ -9,7 +9,7 @@ service FastQueueService {
   rpc DeleteSubscription (DeleteSubscriptionRequest) returns (DeleteSubscriptionReply) {}
   rpc Publish (stream WriteRequest) returns (stream PublisherAck) {}
   rpc PublishMany (stream WriteManyRequest) returns (stream PublisherAck) {}
-  rpc Subscribe (stream CompleteRequest) returns (stream Messages) {}
+  rpc Subscribe (stream CompleteRequest) returns (stream MessageBatch) {}
 }
 
 message CreateTopicRequest {
@@ -71,7 +71,7 @@ message Message {
   bytes Body = 3;
 }
 
-message Messages
+message MessageBatch
 {
     repeated Message Messages = 1;
 }

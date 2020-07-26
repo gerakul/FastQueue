@@ -164,7 +164,7 @@ namespace FastQueue.Server.Core
 
         private async Task RunAckHandler(PublisherAck ack, CancellationToken cancellationToken)
         {
-            await ackHandler(ack, cancellationToken).ConfigureAwait(false);
+            await ackHandler(ack, cancellationToken);
         }
 
         public async ValueTask DisposeAsync()
