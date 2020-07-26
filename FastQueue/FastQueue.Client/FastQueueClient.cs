@@ -37,11 +37,11 @@ namespace FastQueue.Client
         }
 
         private async Task<IPublisher> CreatePublisherInternal(string topicName, PublisherOptions options, 
-            Func<AsyncDuplexStreamingCall<WriteRequest, PublisherAck>, Publisher> publisherFactory)
+            Func<AsyncDuplexStreamingCall<PublishRequest, PublisherAck>, Publisher> publisherFactory)
         {
             var opt = options ?? new PublisherOptions();
             var duplexStream = grpcClient.Publish();
-            await duplexStream.RequestStream.WriteAsync(new FastQueueService.WriteRequest
+            await duplexStream.RequestStream.WriteAsync(new FastQueueService.PublishRequest
             {
                 Options = new FastQueueService.PublisherOptions
                 {
@@ -65,11 +65,11 @@ namespace FastQueue.Client
         }
 
         private async Task<IPublisherMany> CreatePublisherManyInternal(string topicName, PublisherOptions options, bool ackHandlerIsNull,
-            Func<AsyncDuplexStreamingCall<WriteManyRequest, PublisherAck>, PublisherMany> publisherFactory)
+            Func<AsyncDuplexStreamingCall<PublishManyRequest, PublisherAck>, PublisherMany> publisherFactory)
         {
             var opt = options ?? new PublisherOptions();
             var duplexStream = grpcClient.PublishMany();
-            await duplexStream.RequestStream.WriteAsync(new FastQueueService.WriteManyRequest
+            await duplexStream.RequestStream.WriteAsync(new FastQueueService.PublishManyRequest
             {
                 Options = new FastQueueService.PublisherOptions
                 {

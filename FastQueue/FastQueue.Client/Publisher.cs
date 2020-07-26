@@ -9,17 +9,17 @@ namespace FastQueue.Client
 {
     internal class Publisher : PublisherBase, IPublisher
     {
-        private readonly AsyncDuplexStreamingCall<WriteRequest, PublisherAck> duplexStream;
-        private readonly IClientStreamWriter<WriteRequest> requestStream;
+        private readonly AsyncDuplexStreamingCall<PublishRequest, PublisherAck> duplexStream;
+        private readonly IClientStreamWriter<PublishRequest> requestStream;
 
-        internal Publisher(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.WriteRequest, FastQueueService.PublisherAck> duplexStream,
+        internal Publisher(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.PublishRequest, FastQueueService.PublisherAck> duplexStream,
             Action<long> ackHandler) : base(duplexStream.ResponseStream, ackHandler)
         {
             this.duplexStream = duplexStream;
             requestStream = duplexStream.RequestStream;
         }
 
-        internal Publisher(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.WriteRequest, FastQueueService.PublisherAck> duplexStream,
+        internal Publisher(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.PublishRequest, FastQueueService.PublisherAck> duplexStream,
             Func<long, Task> ackHandler) : base(duplexStream.ResponseStream, ackHandler)
         {
             this.duplexStream = duplexStream;
@@ -37,7 +37,7 @@ namespace FastQueue.Client
                     throw new PublisherException($"Cannot write to disposed {nameof(Publisher)}");
                 }
 
-                writeTask = requestStream.WriteAsync(new WriteRequest 
+                writeTask = requestStream.WriteAsync(new PublishRequest
                 { 
                     SequenceNumber = sequenceNumber, 
                     Message = Google.Protobuf.ByteString.CopyFrom(message.Span) 

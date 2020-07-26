@@ -11,17 +11,17 @@ namespace FastQueue.Client
 {
     internal class PublisherMany : PublisherBase, IPublisherMany
     {
-        private readonly AsyncDuplexStreamingCall<WriteManyRequest, PublisherAck> duplexStream;
-        private readonly IClientStreamWriter<WriteManyRequest> requestStream;
+        private readonly AsyncDuplexStreamingCall<PublishManyRequest, PublisherAck> duplexStream;
+        private readonly IClientStreamWriter<PublishManyRequest> requestStream;
 
-        internal PublisherMany(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.WriteManyRequest, FastQueueService.PublisherAck> duplexStream,
+        internal PublisherMany(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.PublishManyRequest, FastQueueService.PublisherAck> duplexStream,
             Action<long> ackHandler) : base(duplexStream.ResponseStream, ackHandler)
         {
             this.duplexStream = duplexStream;
             requestStream = duplexStream.RequestStream;
         }
 
-        internal PublisherMany(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.WriteManyRequest, FastQueueService.PublisherAck> duplexStream,
+        internal PublisherMany(Grpc.Core.AsyncDuplexStreamingCall<FastQueueService.PublishManyRequest, FastQueueService.PublisherAck> duplexStream,
             Func<long, Task> ackHandler) : base(duplexStream.ResponseStream, ackHandler)
         {
             this.duplexStream = duplexStream;
@@ -39,7 +39,7 @@ namespace FastQueue.Client
                     throw new PublisherException($"Cannot write to disposed {nameof(Publisher)}");
                 }
 
-                var request = new WriteManyRequest
+                var request = new PublishManyRequest
                 {
                     SequenceNumber = sequenceNumber
                 };

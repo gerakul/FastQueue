@@ -43,7 +43,7 @@ namespace FastQueue.Server.Grpc.Services
             return new FastQueueService.DeleteSubscriptionReply();
         }
 
-        public override async Task Publish(IAsyncStreamReader<FastQueueService.WriteRequest> requestStream, IServerStreamWriter<FastQueueService.PublisherAck> responseStream, ServerCallContext context)
+        public override async Task Publish(IAsyncStreamReader<FastQueueService.PublishRequest> requestStream, IServerStreamWriter<FastQueueService.PublisherAck> responseStream, ServerCallContext context)
         {
             if (!(await requestStream.MoveNext(context.CancellationToken)))
             {
@@ -66,7 +66,7 @@ namespace FastQueue.Server.Grpc.Services
             }
         }
 
-        public override async Task PublishMany(IAsyncStreamReader<FastQueueService.WriteManyRequest> requestStream, IServerStreamWriter<FastQueueService.PublisherAck> responseStream, ServerCallContext context)
+        public override async Task PublishMany(IAsyncStreamReader<FastQueueService.PublishManyRequest> requestStream, IServerStreamWriter<FastQueueService.PublisherAck> responseStream, ServerCallContext context)
         {
             if (!(await requestStream.MoveNext(context.CancellationToken)))
             {

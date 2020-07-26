@@ -7,8 +7,8 @@ service FastQueueService {
   rpc DeleteTopic (DeleteTopicRequest) returns (DeleteTopicReply) {}
   rpc CreateSubscription (CreateSubscriptionRequest) returns (CreateSubscriptionReply) {}
   rpc DeleteSubscription (DeleteSubscriptionRequest) returns (DeleteSubscriptionReply) {}
-  rpc Publish (stream WriteRequest) returns (stream PublisherAck) {}
-  rpc PublishMany (stream WriteManyRequest) returns (stream PublisherAck) {}
+  rpc Publish (stream PublishRequest) returns (stream PublisherAck) {}
+  rpc PublishMany (stream PublishManyRequest) returns (stream PublisherAck) {}
   rpc Subscribe (stream CompleteRequest) returns (stream MessageBatch) {}
 }
 
@@ -43,13 +43,13 @@ message DeleteSubscriptionRequest {
 message DeleteSubscriptionReply {
 }
 
-message WriteRequest {
+message PublishRequest {
   int64 SequenceNumber = 1;
   bytes Message = 2;
   PublisherOptions Options = 3;
 }
 
-message WriteManyRequest {
+message PublishManyRequest {
   int64 SequenceNumber = 1;
   repeated bytes Messages = 2;
   PublisherOptions Options = 3;
