@@ -26,6 +26,26 @@ namespace FastQueue.Client
             await grpcClient.CreateTopicAsync(new FastQueueService.CreateTopicRequest { Name = name }, cancellationToken: cancellationToken);
         }
 
+        public async Task DeleteTopic(string name, CancellationToken cancellationToken)
+        {
+            await grpcClient.DeleteTopicAsync(new FastQueueService.DeleteTopicRequest { Name = name, DeleteSubscriptions = false }, cancellationToken: cancellationToken);
+        }
+
+        public async Task DeleteTopic(string name, bool deleteSubscriptions, CancellationToken cancellationToken)
+        {
+            await grpcClient.DeleteTopicAsync(new FastQueueService.DeleteTopicRequest { Name = name, DeleteSubscriptions = deleteSubscriptions }, cancellationToken: cancellationToken);
+        }
+
+        public async Task CreateSubscription(string topicName, string subscriptionName, CancellationToken cancellationToken)
+        {
+            await grpcClient.CreateSubscriptionAsync(new FastQueueService.CreateSubscriptionRequest { TopicName = topicName, SubscriptionName = subscriptionName }, cancellationToken: cancellationToken);
+        }
+
+        public async Task DeleteSubscription(string topicName, string subscriptionName, CancellationToken cancellationToken)
+        {
+            await grpcClient.DeleteSubscriptionAsync(new FastQueueService.DeleteSubscriptionRequest { TopicName = topicName, SubscriptionName = subscriptionName }, cancellationToken: cancellationToken);
+        }
+
         public Task<IPublisher> CreatePublisher(string topicName, Action<long> ackHandler, PublisherOptions options = null)
         {
             return CreatePublisherInternal(topicName, options, duplexStream => new Publisher(duplexStream, ackHandler));

@@ -97,14 +97,12 @@ namespace FastQueue.Client
 
         public async ValueTask DisposeAsync()
         {
+            if (disposed)
             {
-                if (disposed)
-                {
-                    return;
-                }
-
-                disposed = true;
+                return;
             }
+
+            disposed = true;
 
             cancellationTokenSource.Cancel();
             await await receivingLoopTask;

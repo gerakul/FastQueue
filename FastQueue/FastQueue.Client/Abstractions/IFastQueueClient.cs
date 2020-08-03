@@ -9,6 +9,10 @@ namespace FastQueue.Client.Abstractions
     public interface IFastQueueClient : IDisposable
     {
         Task CreateTopic(string name, CancellationToken cancellationToken);
+        Task DeleteTopic(string name, CancellationToken cancellationToken);
+        Task DeleteTopic(string name, bool deleteSubscriptions, CancellationToken cancellationToken);
+        Task CreateSubscription(string topicName, string subscriptionName, CancellationToken cancellationToken);
+        Task DeleteSubscription(string topicName, string subscriptionName, CancellationToken cancellationToken);
         Task<IPublisher> CreatePublisher(string topicName, Action<long> ackHandler, PublisherOptions options = null);
         Task<IPublisher> CreatePublisher(string topicName, Func<long, Task> ackHandler, PublisherOptions options = null);
         Task<IPublisherMany> CreatePublisherMany(string topicName, Action<long> ackHandler, PublisherOptions options = null);
