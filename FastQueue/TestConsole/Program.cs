@@ -21,20 +21,27 @@ namespace TestConsole
 
         static async Task Main(string[] args)
         {
+            await Examples.RunAllTogether();
+
+            //var cts = new CancellationTokenSource();
+
             //await InfiniteArrayTest();
             //await TopicPerformance();
             //await TopicTest();
             //await ServerTest();
 
             //await ClientTest();
-            var stask = SubscriberTest();
-            await PublishTest();
+            //var stask = SubscriberTest(cts.Token);
+            //await PublishTest();
             //await PublishManyTest();
 
-            await stask;
+            //cts.Cancel();
 
-            Console.WriteLine("end");
+            //await stask;
+
+            Console.WriteLine("main end");
             await Task.CompletedTask;
+            Console.ReadKey();
         }
 
         static async Task PublishTest()
@@ -112,7 +119,7 @@ namespace TestConsole
             Console.WriteLine($"End");
         }
 
-        static async Task SubscriberTest()
+        static async Task SubscriberTest(CancellationToken cancellationToken)
         {
             // await Task.Delay(60000);
             Console.WriteLine("Subscriber start");
@@ -133,7 +140,16 @@ namespace TestConsole
                 await sub.Complete(arr[^1].ID);
             });
 
-            await Task.Delay(200000);
+            try
+            {
+                await Task.Delay(200000, cancellationToken);
+            }
+            catch (TaskCanceledException)
+            {
+
+            }
+
+            await subscriber.DisposeAsync();
 
             Console.WriteLine($"Subscriber End");
         }
